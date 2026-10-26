@@ -1,0 +1,282 @@
+# Regras de alerta (Grafana, sem Alertmanager). Dados vêm do Prometheus.
+#
+# LIMITES: todos aqui, no bloco "limites" logo abaixo; é o ÚNICO lugar para
+# ajustar. Os tempos de espera (for:) ficam em cada regra: site/job 5m, 5xx 10m.
+# Depois de mudar, reinicie o Grafana: docker compose restart grafana
+#
+# Por que não ficam no .env: o Grafana 13.2.3 NÃO troca variáveis de ambiente
+# dentro das regras (só no contact point). Testado: "$VARIAVEL" chega literal à
+# consulta, e no nó "threshold" vira texto e a regra dá erro (cannot unmarshal
+# string into float64). Por isso os números são âncoras YAML (&nome / *nome),
+# que valem só dentro deste arquivo, e o Grafana ignora o bloco "limites".
+#
+# Cada regra gera um alerta POR série (por certificado, site, serviço...), e a
+# mensagem (summary) diz qual é e o valor atual. Sem dados (NoData) = OK:
+# a coleta parada tem regra própria ("Coleta da VPS parada").
+apiVersion: 1
+
+limites:
+  cert_dias: &limite_cert_dias 20      # certificado com menos de N dias
+  5xx_pct: &limite_5xx_pct 5           # taxa de 5xx acima de N % ...
+  5xx_trafego_min: &limite_5xx_trafego_min 0.05   # ... só com mais de N req/s (10 min)
+  disco_pct: &limite_disco_pct 85      # disco / da VPS acima de N %
+
+groups:
+  - orgId: 1
+    name: certificados
+    folder: Alertas
+    interval: 1m
+    rules:
+      - uid: cert-traefik
+        title: Certificado vencendo (Traefik)
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: {severity: warning}
+        annotations:
+          summary: 'Certificado de {{ $labels.cn }} vence em {{ printf "%.1f" $values.B.Value }} dias'
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (traefik_tls_certs_not_after - time()) / 86400
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource: {type: __expr__, uid: __expr__}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource: {type: __expr__, uid: __expr__}
+              conditions: [{evaluator: {type: lt, params: [*limite_cert_dias]}}]
+      - uid: cert-site
+        title: Certificado vencendo (site)
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: {severity: warning}
+        annotations:
+          summary: 'Certificado do site {{ $labels.instance }} (visto de fora) vence em {{ printf "%.1f" $values.B.Value }} dias'
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (probe_ssl_earliest_cert_expiry{job="sites"} - time()) / 86400 > 0
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource: {type: __expr__, uid: __expr__}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource: {type: __expr__, uid: __expr__}
+              conditions: [{evaluator: {type: lt, params: [*limite_cert_dias]}}]
+  - orgId: 1
+    name: sites
+    folder: Alertas
+    interval: 1m
+    rules:
+      - uid: site-fora
+        title: Site fora do ar
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels: {severity: critical}
+        annotations:
+          summary: 'Site {{ $labels.instance }} fora do ar há mais de 5 minutos (probe_success = {{ printf "%.0f" $values.B.Value }})'
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                probe_success{job="sites"}
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource: {type: __expr__, uid: __expr__}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource: {type: __expr__, uid: __expr__}
+              conditions: [{evaluator: {type: lt, params: [1]}}]
+  - orgId: 1
+    name: traefik
+    folder: Alertas
+    interval: 1m
+    rules:
+      - uid: taxa-5xx
+        title: Taxa de 5xx alta
+        # Dispara se (5xx / total) > limite E tráfego > mínimo: serviço com
+        # quase nenhum tráfego (1 erro em 4 pedidos) não alerta.
+        condition: C
+        for: 10m
+        noDataState: OK
+        execErrState: Error
+        labels: {severity: critical}
+        annotations:
+          summary: 'Serviço {{ $labels.service }} com {{ printf "%.1f" $values.B.Value }}% de respostas 5xx nos últimos 10 minutos ({{ printf "%.2f" $values.D.Value }} req/s)'
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                100 * sum by (service) (rate(traefik_service_requests_total{code=~"5.."}[10m]))
+                / sum by (service) (rate(traefik_service_requests_total[10m]))
+          - refId: T
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: T
+              instant: true
+              expr: sum by (service) (rate(traefik_service_requests_total[10m]))
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource: {type: __expr__, uid: __expr__}
+          - refId: D
+            datasourceUid: __expr__
+            model:
+              refId: D
+              type: reduce
+              expression: T
+              reducer: last
+              datasource: {type: __expr__, uid: __expr__}
+          - refId: E
+            datasourceUid: __expr__
+            model:
+              refId: E
+              type: threshold
+              expression: B
+              datasource: {type: __expr__, uid: __expr__}
+              conditions: [{evaluator: {type: gt, params: [*limite_5xx_pct]}}]
+          - refId: F
+            datasourceUid: __expr__
+            model:
+              refId: F
+              type: threshold
+              expression: D
+              datasource: {type: __expr__, uid: __expr__}
+              conditions: [{evaluator: {type: gt, params: [*limite_5xx_trafego_min]}}]
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: math
+              expression: $E && $F
+              datasource: {type: __expr__, uid: __expr__}
+  - orgId: 1
+    name: vps
+    folder: Alertas
+    interval: 1m
+    rules:
+      - uid: disco-cheio
+        title: Disco da VPS cheio
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: {severity: critical}
+        annotations:
+          summary: 'Disco / da VPS ({{ $labels.instance }}) em {{ printf "%.1f" $values.B.Value }}%'
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                100 * (1 - node_filesystem_avail_bytes{job="node",mountpoint="/",fstype!~"tmpfs|overlay"}
+                  / node_filesystem_size_bytes{job="node",mountpoint="/",fstype!~"tmpfs|overlay"})
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource: {type: __expr__, uid: __expr__}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource: {type: __expr__, uid: __expr__}
+              conditions: [{evaluator: {type: gt, params: [*limite_disco_pct]}}]
+      - uid: coleta-parada
+        title: Coleta da VPS parada
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels: {severity: critical}
+        annotations:
+          summary: 'Job {{ $labels.job }} ({{ $labels.instance }}) sem resposta há mais de 5 minutos: túnel ou exporter fora'
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                up{job=~"traefik|node"}
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource: {type: __expr__, uid: __expr__}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource: {type: __expr__, uid: __expr__}
+              conditions: [{evaluator: {type: lt, params: [1]}}]

@@ -9,7 +9,7 @@
 # (down -v só no projeto "homelab-smoke"; seus dados reais não são tocados).
 #
 # ATENÇÃO: usa 127.0.0.1:${PORTA_PROMETHEUS} (9090) e 127.0.0.1:${PORTA_GRAFANA}
-# (3000) do host. Não rode com a
+# (3000) do host. Os alertas usam token falso e api.telegram.org -> 127.0.0.1. Não rode com a
 # pilha real de pé (ou outra coisa nessa porta). Leva ~1 minuto.
 #
 # Uso:   testes/smoke.sh

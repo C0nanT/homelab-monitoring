@@ -1,0 +1,25 @@
+# Contact point e política de notificação dos alertas.
+# Token e chat ID vêm do .env (o Grafana troca $TELEGRAM_* ao carregar o arquivo).
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: telegram
+    receivers:
+      - uid: telegram-1
+        type: telegram
+        settings:
+          bottoken: $TELEGRAM_BOT_TOKEN
+          chatid: $TELEGRAM_CHAT_ID
+        # false = avisa de novo quando o problema resolve.
+        disableResolveMessage: false
+
+# Política padrão: tudo vai para o Telegram. Um aviso por problema
+# (alertname + instância); repete a cada 4h enquanto não resolver.
+policies:
+  - orgId: 1
+    receiver: telegram
+    group_by: ['alertname', 'cn', 'instance', 'service', 'job']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
