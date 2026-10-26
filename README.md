@@ -14,6 +14,8 @@ avisa no Telegram.
 │     ▲                                 │
 │     │ /probe                          │
 │  prometheus ── 127.0.0.1:9090 (só o PC)
+│     ▲                                 │
+│  grafana ── 127.0.0.1:3000 (só o PC)  │
 │     │                                 │
 │     └─► tunel (autossh) ═══ SSH ═══════════════►  loopback da VPS
 │         tunel:8082, tunel:9100        │            127.0.0.1:8082 Traefik
@@ -28,6 +30,9 @@ avisa no Telegram.
   usuário `metricas`) as traz para a rede interna da pilha, onde o Prometheus
   coleta os jobs `traefik` e `node`. Nenhuma porta nova é aberta na VPS nem
   publicada no PC.
+- **Grafana** (`127.0.0.1:3000`): já abre com a fonte de dados Prometheus e
+  três painéis (Traefik, Node Exporter Full e Sites), tudo provisionado por
+  arquivo (veja "Grafana").
 - O Prometheus escuta **só em `127.0.0.1:9090`** (não tem autenticação) e
   guarda **90 dias** de histórico num volume nomeado.
 
@@ -40,23 +45,25 @@ avisa no Telegram.
 
 1. Pilha mínima: Prometheus + blackbox testando os sites, com smoke test.
 2. node exporter na borda do `traefik-default`.
-3. **Túnel e coleta das métricas da VPS (esta versão)**: jobs `traefik` e
-   `node`.
-4. Grafana provisionado (fonte de dados e painéis).
+3. Túnel e coleta das métricas da VPS: jobs `traefik` e `node`.
+4. **Grafana provisionado (esta versão)**: fonte de dados e painéis.
 5. Alertas no Telegram (BotFather: token e chat ID no `.env`).
 6. Colocar no ar: checklist manual e UptimeRobot.
 
 ## Subir a pilha
 
 ```bash
-cp .env.example .env     # preencha TUNEL_HOST (veja "Túnel até a VPS")
+cp .env.example .env     # preencha GRAFANA_SENHA_ADMIN e TUNEL_HOST (veja "Túnel até a VPS")
 docker compose up -d --build
 docker compose ps
 ```
 
-Prometheus em <http://127.0.0.1:9090>. Para ver os alvos: *Status →
-Targets* (`sites`, `traefik` e `node`), ou a consulta `probe_success`. Verificação rápida sem subir nada:
-`docker compose config -q`.
+Grafana em <http://127.0.0.1:3000> (usuário `admin`, senha
+`GRAFANA_SENHA_ADMIN` do `.env`). Prometheus em <http://127.0.0.1:9090>. Para
+ver os alvos: *Status → Targets* (`sites`, `traefik` e `node`), ou a consulta
+`probe_success`. Verificação rápida sem subir nada: `docker compose config -q`
+(com o `.env` preenchido: sem `GRAFANA_SENHA_ADMIN` o compose recusa subir,
+de propósito).
 
 Os dados ficam no volume `prometheus-dados` e sobrevivem a
 `docker compose down`. **Não use `down -v`** fora do smoke test: apaga o
@@ -118,6 +125,47 @@ tempo, sem conflito.
 no container. Com o túnel fora, a pilha continua testando os sites; só os
 jobs `traefik` e `node` ficam `down`.
 
+## Grafana
+
+Tudo é provisionado por arquivo e versionado: recriar o Grafana do zero
+(`docker compose down` e apagar o volume `grafana-dados`) não exige um clique.
+
+| O quê | Onde |
+|---|---|
+| Fonte de dados Prometheus (padrão, uid `prometheus`) | `grafana/provisioning/datasources/prometheus.yml` |
+| Provedor dos painéis (relê a pasta a cada 30s) | `grafana/provisioning/dashboards/provedor.yml` |
+| Painéis (JSON) | `grafana/dashboards/` |
+| Alertas (etapa 5) | `grafana/provisioning/alerting/` (vazia por ora) |
+
+- **Acesso**: só em `127.0.0.1:3000` (porta em `PORTA_GRAFANA`), usuário
+  `admin` e a senha `GRAFANA_SENHA_ADMIN` do `.env`; sem ela o compose não
+  sobe (não existe `admin/admin`). Cadastro de usuários e telemetria
+  desligados. Para ver de outro aparelho, use túnel SSH, não abra a porta.
+- **Traefik** (`traefik.json`): requisições, 5xx e latência por serviço,
+  conexões, mais, no topo, a taxa de 5xx por serviço e a tabela de dias até
+  vencer cada certificado (`traefik_tls_certs_not_after`).
+- **Node Exporter Full** (`node-exporter-full.json`): CPU, memória, disco e
+  rede da VPS, com o job `node` já selecionado.
+- **Sites** (`sites.json`, próprio): no ar, status HTTP, latência total e do
+  TLS por site, e os dias até vencer o certificado **lado a lado**: o que o
+  blackbox recebeu de fora e o que o Traefik tem guardado.
+- Os painéis são editáveis na tela só para olhar; as mudanças **não** são
+  salvas (vêm dos arquivos).
+
+### Atualizar um painel
+
+Os painéis Traefik e Node Exporter Full vêm dos painéis públicos da
+comunidade ([17346](https://grafana.com/grafana/dashboards/17346) revisão 9 e
+[1860](https://grafana.com/grafana/dashboards/1860) revisão 45), salvos como
+JSON no repositório (nada é baixado em tempo de execução). Ajustes feitos
+sobre o original: no Traefik, a fonte de dados fixa `prometheus` no lugar de
+`${DS_PROMETHEUS}`, título "Traefik" e as duas visões acrescentadas no topo;
+no Node, só o job `node` pré-selecionado. Para atualizar: baixe a nova
+revisão, refaça esses ajustes, troque o JSON, rode `testes/smoke.sh` (ele
+confere que os painéis principais têm dados) e suba. Para criar ou ajustar um
+painel: edite na tela, *Export → Save to file* e salve o JSON em
+`grafana/dashboards/`.
+
 ## Adicionar um site
 
 Adicionar um site = adicionar uma linha em `prometheus/alvos/sites.yml`
@@ -138,8 +186,12 @@ inclui um certificado vencendo em 10 dias), confere pela API do
 Prometheus que o alvo no ar dá `probe_success` 1 e os demais 0, que os jobs
 `traefik` e `node` estão `up`, que o túnel não publica portas, que a
 retenção é de 90 dias e que o Prometheus **não** responde no IP não-loopback
-do PC, e derruba tudo no final, mesmo com falha. Usa o projeto
-`homelab-smoke` e `127.0.0.1:9090`: não rode com a pilha real de pé. Leva
+do PC; no Grafana, que está saudável, exige a senha, só escuta em
+`127.0.0.1`, tem a fonte de dados e os três painéis e que os painéis
+principais mostram dados (consultas feitas pelo próprio Grafana). Derruba tudo
+no final, mesmo com falha. Usa o projeto
+`homelab-smoke`, `127.0.0.1:9090` e `127.0.0.1:3000`: não rode com a pilha
+real de pé. Leva
 cerca de um minuto.
 
 Para estender (as próximas etapas): uma verificação nova é um arquivo
@@ -152,8 +204,8 @@ Sem subir nada, `testes/docs.sh` confere os pontos do README.
 As imagens estão **fixadas**, nunca `latest`: nada muda sozinho. Cada tag
 aparece em um único arquivo:
 
-- `docker-compose.yml`: `prom/prometheus:vX.Y.Z` e
-  `prom/blackbox-exporter:vX.Y.Z`;
+- `docker-compose.yml`: `prom/prometheus:vX.Y.Z`,
+  `prom/blackbox-exporter:vX.Y.Z` e `grafana/grafana:X.Y.Z`;
 - `tunel/Dockerfile`: `alpine:X.Y.Z` (o autossh e o ssh vêm dos pacotes
   dessa versão do Alpine);
 - `testes/smoke.env`: `nginx:X.Y.Z-alpine` (só dos sites falsos do smoke).
@@ -163,6 +215,7 @@ Para atualizar, de propósito:
 1. Leia as notas de versão
    (<https://github.com/prometheus/prometheus/releases>,
    <https://github.com/prometheus/blackbox_exporter/releases>,
+   <https://github.com/grafana/grafana/releases>,
    <https://alpinelinux.org/releases/>).
 2. Teste antes: troque a tag no arquivo dela (só ali) e rode
    `testes/smoke.sh` (usa `127.0.0.1:9090`). O smoke não usa a imagem do

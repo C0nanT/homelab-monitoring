@@ -99,7 +99,52 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  # Grafana: abre já com a fonte de dados Prometheus e os painéis Traefik,
+  # Host (Node Exporter Full) e Sites, tudo provisionado por arquivo
+  # (grafana/). Recriar do zero não exige clique.
+  grafana:
+    image: grafana/grafana:13.2.3
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      # Obrigatória no .env: sem ela o compose nem sobe (nada de admin/admin).
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_SENHA_ADMIN:?defina GRAFANA_SENHA_ADMIN no .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      # Ticket 05 (alertas no Telegram): as variáveis TELEGRAM_* entram aqui
+      # e são lidas pelos arquivos de grafana/provisioning/alerting/.
+    volumes:
+      - grafana-dados:/var/lib/grafana
+      # Provisionamento: datasources/, dashboards/ (provedor) e alerting/
+      # (vazia por ora; os alertas entram nela na etapa 5).
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      # JSONs dos painéis, versionados no repositório.
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      # Só no loopback do PC; acesso de fora, só por túnel SSH/VPN.
+      - "127.0.0.1:${PORTA_GRAFANA:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
 volumes:
   # Dados do Prometheus. Sobrevivem a "docker compose down" (NÃO use
   # "down -v" fora do smoke test: apaga o histórico).
   prometheus-dados:
+  # Dados do Grafana (usuários, preferências). Painéis e fonte de dados vêm
+  # dos arquivos, então perder o volume não perde configuração.
+  grafana-dados:

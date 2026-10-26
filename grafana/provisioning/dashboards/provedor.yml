@@ -1,0 +1,12 @@
+# Provedor de painéis: carrega os JSON de grafana/dashboards/ (montados em
+# /var/lib/grafana/dashboards). Mudou um JSON? O Grafana relê em até 30s.
+apiVersion: 1
+providers:
+  - name: padrao
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

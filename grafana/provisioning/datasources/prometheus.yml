@@ -1,0 +1,11 @@
+# Fonte de dados provisionada: o Prometheus da própria pilha.
+# O uid é fixo de propósito: painéis e alertas (etapa 5) o referenciam.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

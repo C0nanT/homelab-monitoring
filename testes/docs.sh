@@ -32,4 +32,10 @@ tem README.md 'Monitoramento a partir de outra máquina' "README aponta o lado d
 tem README.md 'tunel/Dockerfile' "README: roteiro de versão cobre a imagem do túnel"
 tem .env.example 'TUNEL_HOST' ".env.example documenta o host do túnel"
 tem .env.example 'TUNEL_USUARIO' ".env.example documenta o usuário do túnel"
+tem README.md '## Grafana' "README tem a seção do Grafana"
+tem README.md 'GRAFANA_SENHA_ADMIN' "README: senha do admin vem do .env"
+tem README.md 'grafana/dashboards' "README: onde ficam os JSON dos painéis"
+tem README.md 'grafana/provisioning/alerting' "README: pasta onde entram os alertas"
+tem README.md 'Atualizar um painel' "README: como atualizar um painel da comunidade"
+tem .env.example 'GRAFANA_SENHA_ADMIN' ".env.example documenta a senha do Grafana"
 exit $((falhas > 0))
