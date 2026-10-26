@@ -1,0 +1,31 @@
+# Configuração do Prometheus.
+# Mudou algo aqui? Reinicie: docker compose restart prometheus
+# (a lista de sites NÃO fica aqui: veja prometheus/alvos/sites.yml).
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # Disponibilidade e certificado dos sites, vistos de fora (internet) pelo
+  # blackbox. O Prometheus chama /probe no blackbox passando cada alvo.
+  - job_name: sites
+    metrics_path: /probe
+    params:
+      module: [https_2xx]
+    file_sd_configs:
+      - files: ['/etc/prometheus/alvos/*.yml']
+        refresh_interval: 1m
+    relabel_configs:
+      # O endereço do alvo vira o parâmetro ?target=...
+      - source_labels: [__address__]
+        target_label: __param_target
+      # ... e o rótulo "instance" mostra o site, não o blackbox.
+      - source_labels: [__param_target]
+        target_label: instance
+      # A coleta de verdade vai para o blackbox.
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # --- Jobs que chegam depois (ticket 03: túnel até a VPS) ---------------
+  # - job_name: traefik   -> tunel:8082
+  # - job_name: node      -> tunel:9100
