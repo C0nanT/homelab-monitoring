@@ -8,7 +8,8 @@
 # Prometheus e com curl, e derruba tudo no final, mesmo se algo falhar
 # (down -v só no projeto "homelab-smoke"; seus dados reais não são tocados).
 #
-# ATENÇÃO: usa 127.0.0.1:${PORTA_PROMETHEUS} (9090) do host. Não rode com a
+# ATENÇÃO: usa 127.0.0.1:${PORTA_PROMETHEUS} (9090) e 127.0.0.1:${PORTA_GRAFANA}
+# (3000) do host. Não rode com a
 # pilha real de pé (ou outra coisa nessa porta). Leva ~1 minuto.
 #
 # Uso:   testes/smoke.sh
@@ -41,6 +42,8 @@ set -a
 set +a
 export PORTA_PROMETHEUS="${PORTA_PROMETHEUS:-9090}"
 PROM_URL="http://127.0.0.1:$PORTA_PROMETHEUS"
+export PORTA_GRAFANA="${PORTA_GRAFANA:-3000}"
+GRAFANA_URL="http://127.0.0.1:$PORTA_GRAFANA"
 
 # Pasta temporária (certificados falsos, configs geradas). Fora do repositório.
 SMOKE_TMP="$(mktemp -d)" || exit 1
