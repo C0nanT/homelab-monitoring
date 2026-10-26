@@ -1,0 +1,10 @@
+# Lista de alvos do blackbox: o ÚNICO lugar para adicionar um site.
+# Uma linha por URL. O Prometheus relê este arquivo sozinho (até 1 minuto),
+# sem reiniciar nada. Use sempre https://.
+- targets:
+    - https://conantorres.dev
+    - https://www.conantorres.dev
+    - https://bbcontainermodular.com
+    - https://www.bbcontainermodular.com
+    # Endpoint de health do bbcontainer.
+    - https://bbcontainermodular.com/api/health

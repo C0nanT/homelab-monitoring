@@ -1,0 +1,69 @@
+# Pilha de monitoramento da VPS, rodando no PC (não na VPS).
+#
+# Uso:
+#   cp .env.example .env     # (opcional nesta etapa)
+#   docker compose up -d
+#   docker compose ps
+#
+# Versões FIXAS (nada de latest): cada imagem aparece uma única vez, aqui.
+# Veja "Fixar e atualizar as versões" no README antes de trocar uma tag.
+#
+# Verificação rápida sem subir nada: docker compose config -q
+name: homelab-monitoring
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Retenção por tempo: 90 dias de histórico.
+      - --storage.tsdb.retention.time=90d
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Monta a PASTA (não o arquivo): o Prometheus relê os alvos sozinho
+      # quando algo muda, sem reiniciar. Adicionar site = editar sites.yml.
+      - ./prometheus/alvos:/etc/prometheus/alvos:ro
+      - prometheus-dados:/prometheus
+    ports:
+      # Só no loopback do PC: o Prometheus não tem autenticação.
+      - "127.0.0.1:${PORTA_PROMETHEUS:-9090}:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      blackbox:
+        condition: service_healthy
+    # Logs com rotação: sem isto o disco do PC enche aos poucos.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.29.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/blackbox/blackbox.yml
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    # Sem "ports": só o Prometheus (mesma rede da pilha) fala com o blackbox.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9115/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  # Dados do Prometheus. Sobrevivem a "docker compose down" (NÃO use
+  # "down -v" fora do smoke test: apaga o histórico).
+  prometheus-dados:

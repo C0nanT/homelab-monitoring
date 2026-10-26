@@ -1,0 +1,20 @@
+# Módulos do blackbox exporter.
+# Mudou algo aqui? Recarregue com: docker compose restart blackbox
+modules:
+  # Site público: exige HTTPS com certificado VÁLIDO (cadeia e nome conferem
+  # com as CAs do sistema; o certificado padrão auto-assinado do Traefik, que
+  # aparece quando o certificado real falha, dá probe_success 0).
+  https_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      # Vazio = qualquer 2xx.
+      valid_status_codes: []
+      # www -> raiz e http -> https passam; um redirecionamento para http falha.
+      follow_redirects: true
+      # Falha se a resposta final não for HTTPS.
+      fail_if_not_ssl: true
+      # A VPS não tem IPv6 publicado: só IPv4, sem cair para IPv6.
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false

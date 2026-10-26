@@ -1,0 +1,8 @@
+# Alvos do smoke test (substituem prometheus/alvos/sites.yml).
+# "site-fora" não existe na rede: o blackbox não resolve o nome -> falha.
+- targets:
+    - https://site-ok:8443
+    - https://site-ok:8443/redireciona
+    - https://site-ok:8443/erro
+    - https://site-cert-ruim:8443
+    - https://site-fora:8443
