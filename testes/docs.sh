@@ -12,6 +12,14 @@ tem() { # arquivo padrão descrição
     falhas=$((falhas + 1))
   fi
 }
+nao_tem() { # arquivo padrão descrição
+  if grep -qF -- "$2" "$1" 2>/dev/null; then
+    echo "FALHA $3 ($1 ainda tem: $2)"
+    falhas=$((falhas + 1))
+  else
+    echo "ok    $3"
+  fi
+}
 tem README.md 'Arquitetura' "README explica a arquitetura"
 tem README.md 'túnel' "README cita o túnel"
 tem README.md 'loopback' "README cita o loopback da VPS"
@@ -47,4 +55,18 @@ tem README.md '`limites`' "README: limites ajustáveis num lugar só"
 tem .env.example 'TELEGRAM_BOT_TOKEN' ".env.example documenta o token do bot"
 tem .env.example 'TELEGRAM_CHAT_ID' ".env.example documenta o chat ID"
 tem .env.example 'regras.yml' ".env.example aponta onde ficam os limites"
+tem README.md '## Colocar no ar' "README tem a seção de colocar no ar"
+tem README.md 'cd /opt/traefik && git pull' "README: atualizar a borda na VPS"
+tem README.md 'curl -s http://127.0.0.1:9100/metrics' "README: node exporter responde no loopback da VPS"
+tem README.md 'curl -m 5 http://IP_DA_VPS:9100/metrics' "README: porta 9100 não aparece de fora"
+tem README.md '## Checklist manual' "README tem o checklist manual"
+tem README.md 'suspender o PC' "checklist: túnel volta depois de suspender o PC"
+tem README.md 'docker compose restart traefik' "checklist: coleta volta depois de reiniciar o Traefik"
+tem README.md '127.0.0.1:8080' "checklist: chave do metricas recusa encaminhar para 8080"
+tem README.md '## UptimeRobot' "README tem o passo a passo do UptimeRobot"
+tem README.md 'https://uptimerobot.com' "README: link do UptimeRobot"
+tem README.md 'https://bbcontainermodular.com' "README: monitor do bbcontainermodular.com"
+nao_tem README.md '(nas próximas etapas)' "README sem texto de etapa futura do Grafana"
+nao_tem README.md '(etapa final)' "README sem 'etapa final' no aviso do UptimeRobot"
+nao_tem README.md 'provisionado (esta versão)' "roteiro não marca a etapa 4 como atual"
 exit $((falhas > 0))

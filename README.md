@@ -2,8 +2,8 @@
 
 Monitoramento da VPS (o servidor do [`traefik-default`](../traefik-default))
 rodando **no meu PC**, não na VPS: Prometheus guarda as métricas, o blackbox
-exporter testa os sites por fora e (nas próximas etapas) o Grafana mostra e
-avisa no Telegram.
+exporter testa os sites por fora e o Grafana mostra e avisa no Telegram. O
+UptimeRobot cobre os sites 24/7, mesmo com o PC desligado.
 
 ## Arquitetura
 
@@ -39,16 +39,17 @@ avisa no Telegram.
 > **Aviso: o uptime medido aqui só vale com o PC ligado.** Se o PC dorme,
 > desliga ou perde a internet, a pilha para de coletar e de avisar, e isso
 > não significa que a VPS caiu. A cobertura 24/7 dos sites fica com o
-> UptimeRobot (etapa final).
+> UptimeRobot (veja "UptimeRobot").
 
 ## Roteiro de versões
 
 1. Pilha mínima: Prometheus + blackbox testando os sites, com smoke test.
 2. node exporter na borda do `traefik-default`.
 3. Túnel e coleta das métricas da VPS: jobs `traefik` e `node`.
-4. **Grafana provisionado (esta versão)**: fonte de dados e painéis.
+4. Grafana provisionado: fonte de dados e painéis.
 5. Alertas no Telegram (BotFather: token e chat ID no `.env`).
-6. Colocar no ar: checklist manual e UptimeRobot.
+6. **Colocar no ar (esta versão)**: VPS, túnel real, checklist manual e
+   UptimeRobot (veja "Colocar no ar").
 
 ## Subir a pilha
 
@@ -217,6 +218,102 @@ mudar, `docker compose restart grafana`. Eles não estão no `.env` porque o
 Grafana 13.2.3 não troca variáveis de ambiente dentro das regras (só no
 contact point); testado e explicado no cabeçalho do `regras.yml`. Os tempos de
 espera (`for:`) ficam em cada regra.
+
+## Colocar no ar
+
+A ordem para a primeira vez (ou depois de reinstalar a VPS). Os passos são
+manuais; o smoke test não substitui nenhum deles.
+
+**1. Na VPS: node exporter na borda.** Ele vem no `docker-compose.yml` do
+[`traefik-default`](../traefik-default#painel-e-métricas-via-túnel-ssh):
+
+```bash
+cd /opt/traefik && git pull
+docker compose up -d
+docker compose ps                                   # node-exporter de pé
+curl -s http://127.0.0.1:9100/metrics | head -3     # responde no loopback
+sudo ss -ltnp | grep 9100                           # só 127.0.0.1:9100, nunca 0.0.0.0
+```
+
+**2. Do PC: a porta 9100 não aparece de fora.** Tem que falhar (tempo
+esgotado ou conexão recusada):
+
+```bash
+curl -m 5 http://IP_DA_VPS:9100/metrics
+```
+
+**3. Na VPS: usuário `metricas`.** Siga "Monitoramento a partir de outra
+máquina" no README do
+[`traefik-default`](../traefik-default#monitoramento-a-partir-de-outra-máquina)
+(usuário sem shell, chave restrita às portas 8082 e 9100, conferência do
+`sshd` e o teste manual da chave). A chave pública vem do passo 1 de "Túnel
+até a VPS", abaixo; gere-a antes.
+
+**4. No PC: túnel e pilha.** Siga "Túnel até a VPS" (chave, `known_hosts`,
+`.env`) e "Criar o bot e preencher o `.env`" (Telegram); depois
+`docker compose up -d --build`.
+
+**5. UptimeRobot.** Veja "UptimeRobot", abaixo.
+
+**6. Confira tudo** com o "Checklist manual".
+
+## Checklist manual
+
+Não é automatizado: rode depois de colocar no ar e sempre que mexer na VPS,
+no túnel ou no bot.
+
+- [ ] **Túnel real com os alvos `up`.** Em *Status → Targets*
+  (<http://127.0.0.1:9090/targets>), os jobs `sites`, `traefik` e `node`
+  estão `UP`; nos painéis Traefik, Node Exporter Full e Sites aparecem dados
+  reais da VPS.
+- [ ] **A chave do `metricas` recusa shell.** `ssh -i chaves/id_tunel -o
+  IdentitiesOnly=yes metricas@IP_DA_VPS` fecha na hora (ou "This account is
+  currently not available.").
+- [ ] **A chave do `metricas` recusa encaminhar para outra porta.** Um túnel
+  para `127.0.0.1:8080` (o painel) dá `administratively prohibited` e o
+  `curl` falha, enquanto o de `127.0.0.1:8082` responde. Os comandos estão no
+  passo 4 ("Teste do PC") de "Monitoramento a partir de outra máquina", no
+  README do
+  [`traefik-default`](../traefik-default#monitoramento-a-partir-de-outra-máquina).
+- [ ] **O túnel volta sozinho depois de suspender o PC.** Suspenda o PC por
+  mais de um minuto, acorde e espere 1 a 2 minutos: `traefik` e `node`
+  voltam a `UP` sem mexer em nada. Se não voltarem,
+  `docker compose logs tunel`.
+- [ ] **A coleta volta depois de reiniciar o Traefik.** Na VPS,
+  `cd /opt/traefik && docker compose restart traefik`. O alvo `traefik` pode
+  cair por alguns segundos e volta a `UP` sozinho no PC (o túnel aponta para
+  o loopback da VPS, que não muda com o container; nada a refazer).
+- [ ] **O alerta de teste chega no Telegram.** Veja "Mandar um alerta de
+  teste".
+- [ ] **Monitores do UptimeRobot verdes.** Os dois monitores (veja
+  "UptimeRobot") aparecem *Up* no painel do UptimeRobot.
+
+## UptimeRobot
+
+A pilha só vê os sites com o PC ligado. O [UptimeRobot](https://uptimerobot.com)
+testa os sites de fora, 24/7, no plano gratuito, e avisa quando caem. É
+configurado à mão no site (sem automação); os nomes dos menus podem mudar um
+pouco.
+
+1. Crie uma conta gratuita (*Free plan*) em <https://uptimerobot.com>.
+2. Cadastre o aviso primeiro, em *Alert Contacts* (ou *Integrations*):
+   - **e-mail**: o da conta já vem cadastrado; basta confirmar;
+   - **Telegram** (opcional): se a integração com o Telegram estiver
+     disponível no seu plano, siga o assistente dela (ele dá um link para
+     abrir no Telegram e liga o bot do UptimeRobot à sua conversa). Se não
+     estiver, fique com o e-mail.
+3. Crie um monitor para cada domínio, com *New monitor*:
+   - tipo **HTTP(s)**;
+   - URL `https://conantorres.dev` (o outro: `https://bbcontainermodular.com`);
+   - intervalo: o menor do plano gratuito (5 minutos);
+   - em *Alert contacts*, marque o contato do passo 2.
+4. Confira: os dois monitores ficam verdes (*Up*) em poucos minutos. Para
+   testar o aviso, crie um monitor temporário para uma URL que não existe
+   (ex.: `https://conantorres.dev.invalid`), espere o aviso chegar e apague
+   esse monitor.
+
+O uptime "oficial" dos sites é o do UptimeRobot; o `probe_success` da pilha
+só cobre as horas com o PC ligado.
 
 ## Adicionar um site
 
