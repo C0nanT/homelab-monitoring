@@ -224,6 +224,11 @@ espera (`for:`) ficam em cada regra.
 A ordem para a primeira vez (ou depois de reinstalar a VPS). Os passos são
 manuais; o smoke test não substitui nenhum deles.
 
+**0. No PC: publicar a borda.** O `/opt/traefik` da VPS é um clone do
+GitHub; o node exporter e a documentação do `metricas` só chegam lá
+depois do merge do `feature/homelab-monitoring` na `main` do
+`traefik-default` e do `git push`. Rode antes o `testes/smoke.sh` de lá.
+
 **1. Na VPS: node exporter na borda.** Ele vem no `docker-compose.yml` do
 [`traefik-default`](../traefik-default#painel-e-métricas-via-túnel-ssh):
 
@@ -305,7 +310,7 @@ pouco.
 3. Crie um monitor para cada domínio, com *New monitor*:
    - tipo **HTTP(s)**;
    - URL `https://conantorres.dev` (o outro: `https://bbcontainermodular.com`);
-   - intervalo: o menor do plano gratuito (5 minutos);
+   - intervalo: o menor que o plano gratuito oferecer;
    - em *Alert contacts*, marque o contato do passo 2.
 4. Confira: os dois monitores ficam verdes (*Up*) em poucos minutos. Para
    testar o aviso, crie um monitor temporário para uma URL que não existe
