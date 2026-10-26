@@ -2,5 +2,3 @@
 # Chaves SSH do túnel (privadas!) e known_hosts da VPS: nunca versionar.
 chaves/*
 !chaves/.gitkeep
-# Arquivos temporários do smoke test (certificados falsos etc.).
-testes/.tmp/

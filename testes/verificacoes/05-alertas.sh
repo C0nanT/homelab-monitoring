@@ -16,16 +16,18 @@ TITULO_5XX="Taxa de 5xx alta"
 TITULO_DISCO="Disco da VPS cheio"
 TITULO_JOB="Coleta da VPS parada"
 
+# Guarda a última resposta em REGRAS_JSON (usada no resto do arquivo).
+REGRAS_JSON=""
 regras_provisionadas() {
-  grafana_api /api/v1/provisioning/alert-rules | jq -e 'length >= 6' >/dev/null
+  REGRAS_JSON="$(grafana_api /api/v1/provisioning/alert-rules)" &&
+    jq -e 'length >= 6' <<<"$REGRAS_JSON" >/dev/null
 }
 if esperar_ate 60 regras_provisionadas; then
   ok "regras provisionadas aparecem na API do Grafana"
 else
   falha "regras provisionadas aparecem na API do Grafana" "GET /api/v1/provisioning/alert-rules"
 fi
-
-REGRAS_JSON="$(grafana_api /api/v1/provisioning/alert-rules || echo '[]')"
+[ -n "$REGRAS_JSON" ] || REGRAS_JSON='[]'
 for titulo in "$TITULO_CERT_TRAEFIK" "$TITULO_CERT_BLACKBOX" "$TITULO_SITE" \
   "$TITULO_5XX" "$TITULO_DISCO" "$TITULO_JOB"; do
   afirmar "regra '$titulo' existe" \
@@ -71,14 +73,14 @@ estado_alertas() {
     jq -r --arg t "$1" '[.data.groups[].rules[]|select(.name==$t)][0].alerts // []
       | .[] | select(.state|test("^(Alerting|Pending|firing|pending)")) | "\(.state) \(.labels.cn // .labels.service // .labels.instance // .labels.job // "?")"'
 }
-# aguardar_alerta TITULO PADRÃO -> espera uma instância (Alerting|Pending) cujo
-# rótulo bata com o padrão.
+# alerta_ativo TITULO PADRÃO -> sucesso se há uma instância (Alerting|Pending)
+# cujo rótulo bata com o padrão.
+alerta_ativo() {
+  estado_alertas "$1" | grep -qE "^(Alerting|Pending|firing|pending) .*$2"
+}
+# aguardar_alerta TITULO PADRÃO -> espera (até 180s) por alerta_ativo.
 aguardar_alerta() {
-  local fim=$((SECONDS + 180))
-  until estado_alertas "$1" | grep -E "^(Alerting|Pending|firing|pending) .*$2" >/dev/null; do
-    [ "$SECONDS" -ge "$fim" ] && return 1
-    sleep 5
-  done
+  esperar_ate 180 alerta_ativo "$1" "$2"
 }
 
 if aguardar_alerta "$TITULO_CERT_TRAEFIK" 'conantorres\.dev'; then
@@ -90,6 +92,27 @@ afirmar "certificado de 60 dias (bbcontainermodular.com) NÃO dispara" \
   bash -c '! printf "%s\n" "$1" | grep -q bbcontainermodular' _ "$(estado_alertas "$TITULO_CERT_TRAEFIK")"
 afirmar "estado do certificado é 'Alerting' (for 0s), sem esperar" \
   bash -c 'printf "%s\n" "$1" | grep -qiE "^(alerting|firing) conantorres\.dev"' _ "$(estado_alertas "$TITULO_CERT_TRAEFIK")"
+
+# Certificado visto de fora: o do site-ok do smoke vale só 2 dias (< 20), então
+# dispara. O site-cert-ruim (CA desconhecida) e o site-fora (nome não resolve)
+# falham no TLS/DNS e o blackbox nem emite probe_ssl_earliest_cert_expiry:
+# nenhum alerta de certificado falso para eles (só "Site fora do ar").
+if aguardar_alerta "$TITULO_CERT_BLACKBOX" 'site-ok'; then
+  ok "certificado de 2 dias do site-ok (visto de fora) entra em disparo"
+else
+  falha "certificado de 2 dias do site-ok (visto de fora) entra em disparo" "$(estado_alertas "$TITULO_CERT_BLACKBOX")"
+fi
+afirmar "certificado (site): site-cert-ruim e site-fora NÃO disparam alerta de certificado" \
+  bash -c '! printf "%s\n" "$1" | grep -qE "site-cert-ruim|site-fora"' _ "$(estado_alertas "$TITULO_CERT_BLACKBOX")"
+# Certificado já vencido continua alertando: a expressão da regra, com o
+# vencimento deslocado 30 dias para trás (o site-ok vira "vencido há ~28
+# dias"), ainda devolve a série, com dias negativos. Um filtro "> 0" aplicado
+# aos dias (e não ao timestamp bruto) descartaria essa série.
+SELETOR_CERT_SITE='probe_ssl_earliest_cert_expiry{job="sites"}'
+EXPR_CERT_SITE="$(jq -r --arg t "$TITULO_CERT_BLACKBOX" '.[]|select(.title==$t)|.data[]|select(.refId=="A")|.model.expr' <<<"$REGRAS_JSON")"
+DIAS_VENCIDO="$(prom_valor "${EXPR_CERT_SITE//"$SELETOR_CERT_SITE"/"($SELETOR_CERT_SITE - 30 * 86400)"}")"
+afirmar "certificado (site): vencido (dias negativos: ${DIAS_VENCIDO:-nenhum}) continua na consulta da regra" \
+  awk -v d="$DIAS_VENCIDO" 'BEGIN{exit !(d != "" && d < 0)}'
 
 if aguardar_alerta "$TITULO_SITE" 'site-fora'; then
   ok "site que não existe entra na contagem dos 5 minutos (pendente/disparo)"
