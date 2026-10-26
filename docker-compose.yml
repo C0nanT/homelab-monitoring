@@ -112,12 +112,15 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
-      # Ticket 05 (alertas no Telegram): as variáveis TELEGRAM_* entram aqui
-      # e são lidas pelos arquivos de grafana/provisioning/alerting/.
+      # Alertas no Telegram: o Grafana troca $TELEGRAM_* nos
+      # arquivos de grafana/provisioning/alerting/. Token e chat ID só no .env.
+      # Os limites ficam em regras.yml (o Grafana não troca env nas regras).
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?defina TELEGRAM_BOT_TOKEN no .env (veja "Alertas no Telegram" no README)}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?defina TELEGRAM_CHAT_ID no .env (veja "Alertas no Telegram" no README)}
     volumes:
       - grafana-dados:/var/lib/grafana
       # Provisionamento: datasources/, dashboards/ (provedor) e alerting/
-      # (vazia por ora; os alertas entram nela na etapa 5).
+      # (contact point, política e regras de alerta).
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       # JSONs dos painéis, versionados no repositório.
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro

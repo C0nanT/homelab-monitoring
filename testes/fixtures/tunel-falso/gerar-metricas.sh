@@ -17,8 +17,9 @@
 #   traefik_service_requests_total{code,method,protocol,service}  contador
 #     - conantorres@docker         só 2xx/3xx/4xx (sem 5xx)
 #     - bbcontainermodular@docker  ~10% de 5xx (500 e 502) com tráfego alto
-#     - api@internal               1 requisição 500 e quase nenhum tráfego
-#       (a regra de 5xx com tráfego mínimo NÃO deve disparar aqui)
+#     - api@internal               ~50% de 5xx, mas só ~0,03 req/s (1 pedido 500
+#       e 1 pedido 200 por minuto): a regra de 5xx com tráfego mínimo (0,05
+#       req/s) NÃO deve disparar aqui, embora a taxa de 5xx passe de 5%
 #   traefik_service_request_duration_seconds_{bucket,sum,count}{code,method,protocol,service,le}
 #   traefik_service_requests_bytes_total / traefik_service_responses_bytes_total
 #   traefik_entrypoint_requests_total{code,entrypoint,method,protocol}  (websecure, web)
@@ -62,8 +63,8 @@ traefik_service_requests_total{code="200",method="GET",protocol="http",service="
 traefik_service_requests_total{code="200",method="POST",protocol="http",service="bbcontainermodular@docker"} $((1000 + 2 * t))
 traefik_service_requests_total{code="500",method="GET",protocol="http",service="bbcontainermodular@docker"} $bb_500
 traefik_service_requests_total{code="502",method="GET",protocol="http",service="bbcontainermodular@docker"} $bb_502
-traefik_service_requests_total{code="200",method="GET",protocol="http",service="api@internal"} 3
-traefik_service_requests_total{code="500",method="GET",protocol="http",service="api@internal"} 1
+traefik_service_requests_total{code="200",method="GET",protocol="http",service="api@internal"} $((3 + t / 60))
+traefik_service_requests_total{code="500",method="GET",protocol="http",service="api@internal"} $((1 + t / 60))
 # HELP traefik_service_request_duration_seconds How long it took to process the request on a service, partitioned by status code, protocol, and method.
 # TYPE traefik_service_request_duration_seconds histogram
 FIM

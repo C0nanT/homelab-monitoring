@@ -135,7 +135,7 @@ Tudo é provisionado por arquivo e versionado: recriar o Grafana do zero
 | Fonte de dados Prometheus (padrão, uid `prometheus`) | `grafana/provisioning/datasources/prometheus.yml` |
 | Provedor dos painéis (relê a pasta a cada 30s) | `grafana/provisioning/dashboards/provedor.yml` |
 | Painéis (JSON) | `grafana/dashboards/` |
-| Alertas (etapa 5) | `grafana/provisioning/alerting/` (vazia por ora) |
+| Alertas (contact point, política, regras) | `grafana/provisioning/alerting/` (veja "Alertas no Telegram") |
 
 - **Acesso**: só em `127.0.0.1:3000` (porta em `PORTA_GRAFANA`), usuário
   `admin` e a senha `GRAFANA_SENHA_ADMIN` do `.env`; sem ela o compose não
@@ -166,6 +166,58 @@ confere que os painéis principais têm dados) e suba. Para criar ou ajustar um
 painel: edite na tela, *Export → Save to file* e salve o JSON em
 `grafana/dashboards/`.
 
+## Alertas no Telegram
+
+O próprio Grafana avisa no Telegram (sem Alertmanager) e **avisa de novo quando
+o problema resolve**. Tudo é provisionado por arquivo em
+`grafana/provisioning/alerting/`: `contato.yml` (contact point `telegram` e
+política de notificação) e `regras.yml` (as regras).
+
+| Alerta | Dispara quando | Espera |
+|---|---|---|
+| Certificado vencendo (Traefik) | `traefik_tls_certs_not_after` com menos de **20 dias** | 0 |
+| Certificado vencendo (site) | certificado visto de fora pelo blackbox com menos de **20 dias** | 0 |
+| Site fora do ar | `probe_success` = 0 | 5 min |
+| Taxa de 5xx alta | mais de **5%** das respostas de um serviço são 5xx (janela de 10 min) **e** o serviço tem mais de **0,05 req/s** | 10 min |
+| Disco da VPS cheio | `/` acima de **85%** | 0 |
+| Coleta da VPS parada | job `traefik` ou `node` `down` | 5 min |
+
+Cada mensagem diz qual certificado, site ou serviço e o valor atual (ex.:
+"Certificado de conantorres.dev vence em 10.0 dias"). O tráfego mínimo evita
+alertar por um serviço quase parado em que 1 erro em 3 pedidos dá 33% de 5xx.
+
+### Criar o bot e preencher o `.env`
+
+1. No Telegram, converse com o [@BotFather](https://t.me/BotFather), envie
+   `/newbot`, escolha nome e usuário e guarde o **token**
+   (`123456:ABC...`).
+2. Abra uma conversa com o seu bot (ou adicione-o a um grupo) e envie
+   qualquer mensagem, como `/start`.
+3. Descubra o **chat ID**: abra
+   `https://api.telegram.org/bot<TOKEN>/getUpdates` e procure
+   `"chat":{"id":...}`. Em grupo o número é negativo (ex.: `-100123...`).
+4. Preencha no `.env`: `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID` (o compose
+   não sobe sem eles; o token só existe no `.env`, que não vai para o git).
+5. `docker compose up -d` (ou `docker compose up -d grafana` se a pilha já
+   estava de pé).
+
+### Mandar um alerta de teste
+
+No Grafana (`http://127.0.0.1:3000`): *Alerting → Contact points → telegram →
+Test* (botão "Test"/"Send test notification"). Chegando a mensagem no
+Telegram, o bot, o token e o chat ID estão certos. Se não chegar:
+`docker compose logs grafana | grep -i telegram` (token errado dá `401`/`404`;
+chat ID errado ou bot que nunca recebeu uma mensagem sua dá `400`).
+
+### Ajustar os limites
+
+Os limites (20 dias, 5%, 0,05 req/s, 85%) ficam **num lugar só**: o bloco
+`limites` no topo de `grafana/provisioning/alerting/regras.yml`. Depois de
+mudar, `docker compose restart grafana`. Eles não estão no `.env` porque o
+Grafana 13.2.3 não troca variáveis de ambiente dentro das regras (só no
+contact point); testado e explicado no cabeçalho do `regras.yml`. Os tempos de
+espera (`for:`) ficam em cada regra.
+
 ## Adicionar um site
 
 Adicionar um site = adicionar uma linha em `prometheus/alvos/sites.yml`
@@ -188,7 +240,12 @@ Prometheus que o alvo no ar dá `probe_success` 1 e os demais 0, que os jobs
 retenção é de 90 dias e que o Prometheus **não** responde no IP não-loopback
 do PC; no Grafana, que está saudável, exige a senha, só escuta em
 `127.0.0.1`, tem a fonte de dados e os três painéis e que os painéis
-principais mostram dados (consultas feitas pelo próprio Grafana). Derruba tudo
+principais mostram dados (consultas feitas pelo próprio Grafana); nos
+alertas, que as regras existem pela API, que o contact point e a política
+estão certos, que o certificado de 10 dias dispara e que a regra de 5xx
+entra em contagem para o serviço de tráfego alto mas não para o de tráfego
+quase zero. Nenhuma mensagem real é enviada (token falso e
+`api.telegram.org` apontado para `127.0.0.1` só no smoke). Derruba tudo
 no final, mesmo com falha. Usa o projeto
 `homelab-smoke`, `127.0.0.1:9090` e `127.0.0.1:3000`: não rode com a pilha
 real de pé. Leva

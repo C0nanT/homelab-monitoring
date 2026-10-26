@@ -1,0 +1,8 @@
+# Override do smoke test: o Grafana não consegue falar com o Telegram de
+# verdade. api.telegram.org passa a apontar para o próprio container, então
+# a tentativa de envio (token falso, ver testes/smoke.env) falha na hora e
+# nenhuma mensagem sai da máquina.
+services:
+  grafana:
+    extra_hosts:
+      - "api.telegram.org:127.0.0.1"
