@@ -42,13 +42,15 @@ PASTA=/tmp/metricas
 mkdir -p "$PASTA"
 INICIO="$(date +%s)"
 
-gerar_traefik() { # agora t(segundos desde o início)
-  agora="$1" t="$2"
-  # Contadores: base + taxa por segundo * t.
-  ok_cnt=$((5000 + 20 * t))
-  bb_ok=$((9000 + 18 * t))
-  bb_500=$((700 + t))
-  bb_502=$((300 + t))
+# As funções recebem tudo por argumento e usam só variáveis locais (o "local"
+# existe no sh do BusyBox/Alpine e no dash).
+gerar_traefik() { # agora decorridos(segundos desde o início)
+  local agora="$1" decorridos="$2" ok_cnt bb_ok bb_500 bb_502 s n
+  # Contadores: base + taxa por segundo * decorridos.
+  ok_cnt=$((5000 + 20 * decorridos))
+  bb_ok=$((9000 + 18 * decorridos))
+  bb_500=$((700 + decorridos))
+  bb_502=$((300 + decorridos))
   cat <<FIM
 # HELP traefik_tls_certs_not_after Certificate expiration timestamp
 # TYPE traefik_tls_certs_not_after gauge
@@ -57,19 +59,19 @@ traefik_tls_certs_not_after{cn="bbcontainermodular.com",sans="bbcontainermodular
 # HELP traefik_service_requests_total How many HTTP requests processed on a service, partitioned by status code, protocol, and method.
 # TYPE traefik_service_requests_total counter
 traefik_service_requests_total{code="200",method="GET",protocol="http",service="conantorres@docker"} $ok_cnt
-traefik_service_requests_total{code="304",method="GET",protocol="http",service="conantorres@docker"} $((300 + t))
-traefik_service_requests_total{code="404",method="GET",protocol="http",service="conantorres@docker"} $((40 + t / 10))
+traefik_service_requests_total{code="304",method="GET",protocol="http",service="conantorres@docker"} $((300 + decorridos))
+traefik_service_requests_total{code="404",method="GET",protocol="http",service="conantorres@docker"} $((40 + decorridos / 10))
 traefik_service_requests_total{code="200",method="GET",protocol="http",service="bbcontainermodular@docker"} $bb_ok
-traefik_service_requests_total{code="200",method="POST",protocol="http",service="bbcontainermodular@docker"} $((1000 + 2 * t))
+traefik_service_requests_total{code="200",method="POST",protocol="http",service="bbcontainermodular@docker"} $((1000 + 2 * decorridos))
 traefik_service_requests_total{code="500",method="GET",protocol="http",service="bbcontainermodular@docker"} $bb_500
 traefik_service_requests_total{code="502",method="GET",protocol="http",service="bbcontainermodular@docker"} $bb_502
-traefik_service_requests_total{code="200",method="GET",protocol="http",service="api@internal"} $((3 + t / 60))
-traefik_service_requests_total{code="500",method="GET",protocol="http",service="api@internal"} $((1 + t / 60))
+traefik_service_requests_total{code="200",method="GET",protocol="http",service="api@internal"} $((3 + decorridos / 60))
+traefik_service_requests_total{code="500",method="GET",protocol="http",service="api@internal"} $((1 + decorridos / 60))
 # HELP traefik_service_request_duration_seconds How long it took to process the request on a service, partitioned by status code, protocol, and method.
 # TYPE traefik_service_request_duration_seconds histogram
 FIM
   for s in conantorres@docker bbcontainermodular@docker; do
-    n=$((1000 + 10 * t))
+    n=$((1000 + 10 * decorridos))
     echo "traefik_service_request_duration_seconds_bucket{code=\"200\",method=\"GET\",protocol=\"http\",service=\"$s\",le=\"0.1\"} $((n * 70 / 100))"
     echo "traefik_service_request_duration_seconds_bucket{code=\"200\",method=\"GET\",protocol=\"http\",service=\"$s\",le=\"0.3\"} $((n * 90 / 100))"
     echo "traefik_service_request_duration_seconds_bucket{code=\"200\",method=\"GET\",protocol=\"http\",service=\"$s\",le=\"1.2\"} $((n * 98 / 100))"
@@ -92,7 +94,7 @@ traefik_service_responses_bytes_total{code="200",method="GET",protocol="http",se
 traefik_entrypoint_requests_total{code="200",entrypoint="websecure",method="GET",protocol="http"} $((ok_cnt + bb_ok))
 traefik_entrypoint_requests_total{code="500",entrypoint="websecure",method="GET",protocol="http"} $bb_500
 traefik_entrypoint_requests_total{code="502",entrypoint="websecure",method="GET",protocol="http"} $bb_502
-traefik_entrypoint_requests_total{code="308",entrypoint="web",method="GET",protocol="http"} $((500 + 2 * t))
+traefik_entrypoint_requests_total{code="308",entrypoint="web",method="GET",protocol="http"} $((500 + 2 * decorridos))
 # HELP traefik_entrypoint_request_duration_seconds How long it took to process the request on an entrypoint, partitioned by status code, protocol, and method.
 # TYPE traefik_entrypoint_request_duration_seconds histogram
 traefik_entrypoint_request_duration_seconds_bucket{code="200",entrypoint="websecure",method="GET",protocol="http",le="0.1"} $(((ok_cnt + bb_ok) * 70 / 100))
@@ -104,7 +106,7 @@ traefik_entrypoint_request_duration_seconds_sum{code="200",entrypoint="websecure
 traefik_entrypoint_request_duration_seconds_count{code="200",entrypoint="websecure",method="GET",protocol="http"} $((ok_cnt + bb_ok))
 # HELP traefik_open_connections How many open connections exist, by entryPoint and protocol
 # TYPE traefik_open_connections gauge
-traefik_open_connections{entrypoint="websecure",method="GET",protocol="http"} $((5 + t % 7))
+traefik_open_connections{entrypoint="websecure",method="GET",protocol="http"} $((5 + decorridos % 7))
 traefik_open_connections{entrypoint="web",method="GET",protocol="http"} 1
 traefik_open_connections{entrypoint="metricas",method="GET",protocol="http"} 1
 # HELP traefik_config_reloads_total Config reloads
@@ -113,8 +115,8 @@ traefik_config_reloads_total 4
 FIM
 }
 
-gerar_node() { # agora t
-  agora="$1" t="$2"
+gerar_node() { # agora decorridos
+  local agora="$1" decorridos="$2" boot gib c
   boot=$((INICIO - 864000))
   gib=1073741824
   cat <<FIM
@@ -141,10 +143,10 @@ node_load15 0.30
 FIM
   # 2 vCPUs, ~20% ocupadas: a cada segundo, 0.75 idle, 0.15 user, 0.06 system, 0.04 iowait.
   for c in 0 1; do
-    echo "node_cpu_seconds_total{cpu=\"$c\",mode=\"idle\"} $((800000 + t * 75 / 100))"
-    echo "node_cpu_seconds_total{cpu=\"$c\",mode=\"user\"} $((150000 + t * 15 / 100))"
-    echo "node_cpu_seconds_total{cpu=\"$c\",mode=\"system\"} $((60000 + t * 6 / 100))"
-    echo "node_cpu_seconds_total{cpu=\"$c\",mode=\"iowait\"} $((40000 + t * 4 / 100))"
+    echo "node_cpu_seconds_total{cpu=\"$c\",mode=\"idle\"} $((800000 + decorridos * 75 / 100))"
+    echo "node_cpu_seconds_total{cpu=\"$c\",mode=\"user\"} $((150000 + decorridos * 15 / 100))"
+    echo "node_cpu_seconds_total{cpu=\"$c\",mode=\"system\"} $((60000 + decorridos * 6 / 100))"
+    echo "node_cpu_seconds_total{cpu=\"$c\",mode=\"iowait\"} $((40000 + decorridos * 4 / 100))"
     echo "node_cpu_seconds_total{cpu=\"$c\",mode=\"irq\"} 0"
     echo "node_cpu_seconds_total{cpu=\"$c\",mode=\"softirq\"} 900"
     echo "node_cpu_seconds_total{cpu=\"$c\",mode=\"steal\"} 300"
@@ -192,28 +194,29 @@ node_filesystem_files{device="/dev/sda1",fstype="ext4",mountpoint="/"} 5242880
 node_filesystem_files_free{device="/dev/sda1",fstype="ext4",mountpoint="/"} 4718592
 # HELP node_network_receive_bytes_total Network device statistic receive_bytes.
 # TYPE node_network_receive_bytes_total counter
-node_network_receive_bytes_total{device="eth0"} $((900000000 + 250000 * t))
+node_network_receive_bytes_total{device="eth0"} $((900000000 + 250000 * decorridos))
 # HELP node_network_transmit_bytes_total Network device statistic transmit_bytes.
 # TYPE node_network_transmit_bytes_total counter
-node_network_transmit_bytes_total{device="eth0"} $((2500000000 + 600000 * t))
+node_network_transmit_bytes_total{device="eth0"} $((2500000000 + 600000 * decorridos))
 # HELP node_disk_read_bytes_total The total number of bytes read successfully.
 # TYPE node_disk_read_bytes_total counter
-node_disk_read_bytes_total{device="sda"} $((400000000 + 50000 * t))
+node_disk_read_bytes_total{device="sda"} $((400000000 + 50000 * decorridos))
 # HELP node_disk_written_bytes_total The total number of bytes written successfully.
 # TYPE node_disk_written_bytes_total counter
-node_disk_written_bytes_total{device="sda"} $((700000000 + 120000 * t))
+node_disk_written_bytes_total{device="sda"} $((700000000 + 120000 * decorridos))
 # HELP node_disk_io_time_seconds_total Total seconds spent doing I/Os.
 # TYPE node_disk_io_time_seconds_total counter
-node_disk_io_time_seconds_total{device="sda"} $((3000 + t / 50))
+node_disk_io_time_seconds_total{device="sda"} $((3000 + decorridos / 50))
 FIM
 }
 
 gerar() {
+  local agora decorridos
   agora="$(date +%s)"
-  t=$((agora - INICIO))
-  gerar_traefik "$agora" "$t" >"$PASTA/traefik.prom.tmp"
+  decorridos=$((agora - INICIO))
+  gerar_traefik "$agora" "$decorridos" >"$PASTA/traefik.prom.tmp"
   mv "$PASTA/traefik.prom.tmp" "$PASTA/traefik.prom"
-  gerar_node "$agora" "$t" >"$PASTA/node.prom.tmp"
+  gerar_node "$agora" "$decorridos" >"$PASTA/node.prom.tmp"
   mv "$PASTA/node.prom.tmp" "$PASTA/node.prom"
 }
 

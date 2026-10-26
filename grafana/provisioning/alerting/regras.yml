@@ -77,8 +77,14 @@ groups:
             model:
               refId: A
               instant: true
+              # "> 0" filtra o timestamp bruto (descarta um eventual 0 de
+              # sonda sem certificado), não os dias: certificado já vencido
+              # (dias negativos) continua alertando. Com a verificação de TLS
+              # ligada, o blackbox (v0.29) nem emite esta série quando o
+              # certificado é inválido, vencido ou o site não responde: esses
+              # casos caem em "Site fora do ar".
               expr: >-
-                (probe_ssl_earliest_cert_expiry{job="sites"} - time()) / 86400 > 0
+                ((probe_ssl_earliest_cert_expiry{job="sites"} > 0) - time()) / 86400
           - refId: B
             datasourceUid: __expr__
             model:

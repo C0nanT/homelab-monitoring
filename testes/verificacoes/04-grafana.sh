@@ -83,22 +83,24 @@ grafana_series() {
     jq -r '[.results.A.frames[]?|(.data.values[1] // [])|length]|add // 0'
 }
 
+# tem_series EXPRESSAO -> sucesso se o Grafana recebe ao menos 1 série; guarda
+# a quantidade em SERIES.
+SERIES=0
+tem_series() {
+  SERIES="$(grafana_series "$1")"
+  [ "${SERIES:-0}" -ge 1 ]
+}
+
 # tem_dados DESCRICAO EXPRESSAO
 tem_dados() {
-  local desc="$1" expr="$2" n
+  local desc="$1" expr="$2"
   if [ -z "$expr" ] || [ "$expr" = null ]; then
     falha "$desc" "painel não encontrado no JSON"
     return 1
   fi
   # rate() precisa de 2 coletas (5s cada no smoke): tenta por até 60s.
-  local fim=$((SECONDS + 60))
-  n="$(grafana_series "$expr")"
-  while [ "${n:-0}" -lt 1 ] && [ "$SECONDS" -lt "$fim" ]; do
-    sleep 2
-    n="$(grafana_series "$expr")"
-  done
-  if [ "${n:-0}" -ge 1 ]; then
-    ok "$desc ($n série(s))"
+  if esperar_ate 60 tem_series "$expr"; then
+    ok "$desc ($SERIES série(s))"
   else
     falha "$desc" "sem dados (No data) para: $expr"
     return 1
