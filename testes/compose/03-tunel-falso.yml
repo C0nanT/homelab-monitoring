@@ -1,0 +1,33 @@
+# Override do smoke test: troca o túnel SSH de verdade por um alvo falso.
+# Carregado pelo testes/smoke.sh junto com o docker-compose.yml da raiz.
+#
+# O serviço continua se chamando "tunel" (mesmo nome DNS, mesmas portas 8082 e
+# 9100), então os jobs traefik e node do prometheus.yml valem sem mudança. Em
+# vez do autossh, um nginx serve /metrics com séries do Traefik e do node
+# exporter geradas na hora (lista das séries em
+# testes/fixtures/tunel-falso/gerar-metricas.sh). Nada é construído e nenhum
+# SSH é aberto; a pasta chaves/ não é usada.
+#
+# !reset / !override: apagam/substituem o que vem do compose principal
+# (sem eles, build, environment e volumes seriam mesclados).
+services:
+  tunel:
+    build: !reset null
+    image: ${IMAGEM_NGINX:?definida pelo testes/smoke.env}
+    environment: !reset {}
+    volumes: !override
+      - ./testes/fixtures/tunel-falso/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./testes/fixtures/tunel-falso/gerar-metricas.sh:/gerar-metricas.sh:ro
+    command: ["sh", "/gerar-metricas.sh"]
+    healthcheck: !override
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:8082/metrics && wget -qO /dev/null http://127.0.0.1:9100/metrics"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # Só no smoke: o Prometheus espera o túnel falso, para a 1ª coleta já dar up.
+  # (No compose de verdade ele NÃO espera o túnel: veja docker-compose.yml.)
+  prometheus:
+    depends_on:
+      tunel:
+        condition: service_healthy

@@ -26,6 +26,13 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox:9115
 
-  # --- Jobs que chegam depois (ticket 03: túnel até a VPS) ---------------
-  # - job_name: traefik   -> tunel:8082
-  # - job_name: node      -> tunel:9100
+  # Métricas da VPS pelo túnel SSH (serviço "tunel" da pilha). Na VPS elas
+  # só existem no loopback; o túnel as traz para tunel:8082 e tunel:9100.
+  # Túnel fora = up 0 nestes dois jobs (o blackbox continua vendo os sites).
+  - job_name: traefik
+    static_configs:
+      - targets: ['tunel:8082']
+
+  - job_name: node
+    static_configs:
+      - targets: ['tunel:9100']
