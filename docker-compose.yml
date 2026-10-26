@@ -1,11 +1,12 @@
 # Pilha de monitoramento da VPS, rodando no PC (não na VPS).
 #
 # Uso:
-#   cp .env.example .env     # (opcional nesta etapa)
-#   docker compose up -d
+#   cp .env.example .env     # preencha TUNEL_HOST (veja "Túnel até a VPS")
+#   docker compose up -d --build
 #   docker compose ps
 #
-# Versões FIXAS (nada de latest): cada imagem aparece uma única vez, aqui.
+# Versões FIXAS (nada de latest): cada imagem aparece uma única vez, aqui
+# (a do túnel, no tunel/Dockerfile).
 # Veja "Fixar e atualizar as versões" no README antes de trocar uma tag.
 #
 # Verificação rápida sem subir nada: docker compose config -q
@@ -57,6 +58,41 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Túnel SSH (autossh) até o loopback da VPS: encaminha 127.0.0.1:8082
+  # (Traefik) e 127.0.0.1:9100 (node exporter) da VPS para tunel:8082 e
+  # tunel:9100 nesta rede interna. Reconecta sozinho (keepalive + autossh +
+  # restart). Detalhes em tunel/iniciar.sh.
+  # O Prometheus NÃO depende dele de propósito: com o túnel fora, a pilha
+  # continua testando os sites e o job traefik/node aparece "down".
+  tunel:
+    build: ./tunel
+    restart: unless-stopped
+    environment:
+      # Do .env. Vazio = o container sai com erro explicando o que falta.
+      TUNEL_HOST: ${TUNEL_HOST:-}
+      TUNEL_USUARIO: ${TUNEL_USUARIO:-metricas}
+      TUNEL_PORTA_SSH: ${TUNEL_PORTA_SSH:-22}
+    volumes:
+      # chaves/id_tunel e chaves/known_hosts: fora do git (.gitignore), só leitura.
+      - ./chaves:/chaves:ro
+    # Sem "ports": as portas encaminhadas só existem na rede interna da pilha.
+    # Nada ocupa 8080/8082 do PC, então o túnel manual do painel
+    # (ssh -L 8080 -L 8082) funciona ao mesmo tempo.
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      # Os dois encaminhamentos estão ouvindo (o ssh só os abre conectado).
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8082 && nc -z 127.0.0.1 9100"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     logging:
       driver: json-file
       options:

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Smoke test local da pilha de monitoramento.
 #
-# Sobe o Prometheus + blackbox (docker-compose.yml da raiz) com os arquivos de
+# Sobe a pilha (docker-compose.yml da raiz) com os arquivos de
 # testes/compose/*.yml por cima: sites HTTPS falsos (um no ar, um com
-# certificado não confiado, um que não existe), verifica pela API do
+# certificado não confiado, um que não existe) e um túnel falso (/metrics do
+# Traefik e do node exporter no lugar do SSH até a VPS), verifica pela API do
 # Prometheus e com curl, e derruba tudo no final, mesmo se algo falhar
 # (down -v só no projeto "homelab-smoke"; seus dados reais não são tocados).
 #
@@ -19,7 +20,7 @@
 #     da pasta são carregados em ordem alfabética depois que a pilha está de
 #     pé e usam as funções de testes/lib.sh e a função pilha (docker compose
 #     do projeto do smoke).
-#   - novo serviço/alvo falso (ex.: o túnel falso com /metrics fixo): crie
+#   - novo serviço/alvo falso (ex.: testes/compose/03-tunel-falso.yml): crie
 #     testes/compose/NN-nome.yml. Todos entram como override do compose.
 #   - alvos do blackbox: testes/fixtures/alvos-sites.yml.
 #   - a config do Prometheus do smoke é a da raiz com scrape_interval de 5s;
