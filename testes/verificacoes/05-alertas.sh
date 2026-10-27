@@ -57,6 +57,10 @@ afirmar "contact point 'telegram' do tipo telegram existe" \
   test "$(jq -r '[.[]|select(.name=="telegram" and .type=="telegram")]|length' <<<"$CP_JSON")" = 1
 afirmar "aviso de resolução ligado (disableResolveMessage false)" \
   test "$(jq -r '[.[]|select(.name=="telegram")|.disableResolveMessage]|first' <<<"$CP_JSON")" = false
+afirmar "contact point usa o texto de mensagem.yml (telegram.mensagem, HTML)" \
+  test "$(jq -r '[.[]|select(.name=="telegram")|.settings|"\(.message)|\(.parse_mode)"]|first' <<<"$CP_JSON")" = '{{ template "telegram.mensagem" . }}|HTML'
+afirmar "template 'telegram' provisionado" \
+  test "$(grafana_api /api/v1/provisioning/templates | jq -r '[.[]|select(.name=="telegram")]|length')" = 1
 afirmar "política padrão envia para o contact point telegram" \
   test "$(grafana_api /api/v1/provisioning/policies | jq -r '.receiver')" = telegram
 afirmar "token do Telegram não aparece em claro na API" \

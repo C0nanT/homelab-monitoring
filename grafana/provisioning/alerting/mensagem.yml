@@ -1,0 +1,36 @@
+# Texto das mensagens no Telegram (usado pelo contact point em contato.yml).
+# Uma mensagem por grupo de alertas; cada alerta vira um bloco:
+#
+#   🔴 CRÍTICO · Site fora do ar
+#   Site https://conantorres.dev fora do ar há mais de 5 minutos (...)
+#   🕐 desde 27/10 14:32
+#
+# Sem "$" aqui dentro: o Grafana troca $VARIAVEL nos arquivos de
+# provisionamento. Por isso .Labels/.Annotations em vez de $labels.
+# Formato HTML do Telegram (parse_mode no contato.yml).
+apiVersion: 1
+
+templates:
+  - orgId: 1
+    name: telegram
+    template: |
+      {{ define "telegram.hora" }}{{ . | tz "America/Sao_Paulo" | date "02/01 15:04" }}{{ end }}
+
+      {{ define "telegram.alerta" -}}
+      {{ if eq .Status "resolved" }}✅ <b>RESOLVIDO</b>
+      {{- else if eq .Labels.severity "critical" }}🔴 <b>CRÍTICO</b>
+      {{- else if eq .Labels.severity "warning" }}🟠 <b>ATENÇÃO</b>
+      {{- else }}🔵 <b>AVISO</b>{{ end }} · <b>{{ .Labels.alertname }}</b>
+      {{ .Annotations.summary }}
+      {{ if eq .Status "resolved" -}}
+      🕐 {{ template "telegram.hora" .StartsAt }} → {{ template "telegram.hora" .EndsAt }}
+      {{- else -}}
+      🕐 desde {{ template "telegram.hora" .StartsAt }}
+      {{- end }}
+      {{- end }}
+
+      {{ define "telegram.mensagem" -}}
+      {{ range .Alerts }}{{ template "telegram.alerta" . }}
+
+      {{ end -}}
+      {{- end }}

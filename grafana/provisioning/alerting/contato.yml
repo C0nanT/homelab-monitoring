@@ -11,6 +11,10 @@ contactPoints:
         settings:
           bottoken: $TELEGRAM_BOT_TOKEN
           chatid: $TELEGRAM_CHAT_ID
+          # Texto definido em mensagem.yml.
+          message: '{{ template "telegram.mensagem" . }}'
+          parse_mode: HTML
+          disable_web_page_preview: true
         # false = avisa de novo quando o problema resolve.
         disableResolveMessage: false
 

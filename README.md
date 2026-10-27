@@ -173,7 +173,8 @@ painel: edite na tela, *Export → Save to file* e salve o JSON em
 O próprio Grafana avisa no Telegram (sem Alertmanager) e **avisa de novo quando
 o problema resolve**. Tudo é provisionado por arquivo em
 `grafana/provisioning/alerting/`: `contato.yml` (contact point `telegram` e
-política de notificação) e `regras.yml` (as regras).
+política de notificação), `regras.yml` (as regras) e `mensagem.yml` (o texto
+das mensagens).
 
 | Alerta | Dispara quando | Espera |
 |---|---|---|
@@ -184,8 +185,17 @@ política de notificação) e `regras.yml` (as regras).
 | Disco da VPS cheio | `/` acima de **85%** | 0 |
 | Coleta da VPS parada | job `traefik` ou `node` `down` | 5 min |
 
-Cada mensagem diz qual certificado, site ou serviço e o valor atual (ex.:
-"Certificado de conantorres.dev vence em 10.0 dias"). O tráfego mínimo evita
+Cada mensagem diz a gravidade, qual alerta, qual certificado, site ou serviço
+com o valor atual, e desde quando (horário de Brasília):
+
+```
+🔴 CRÍTICO · Site fora do ar
+Site https://conantorres.dev fora do ar há mais de 5 minutos (probe_success = 0)
+🕐 desde 27/10 14:32
+```
+
+🔴 `critical`, 🟠 `warning`, ✅ resolvido (com início → fim). Para mudar o
+texto, edite `mensagem.yml` e `docker compose restart grafana`. O tráfego mínimo evita
 alertar por um serviço quase parado em que 1 erro em 3 pedidos dá 33% de 5xx.
 
 ### Criar o bot e preencher o `.env`
