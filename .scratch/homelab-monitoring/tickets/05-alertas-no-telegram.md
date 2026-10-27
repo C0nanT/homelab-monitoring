@@ -11,12 +11,12 @@
 
 **Blocked by:** 04 (Grafana provisionado)
 
-Status: ready-for-agent
+Status: ready-for-human
 
-- [ ] Alertas pelo Grafana, sem Alertmanager
-- [ ] Contact point Telegram e política de notificação provisionados; envio de resolução ligado
-- [ ] As cinco regras com os limites da spec, ajustáveis num lugar só
-- [ ] Regra de 5xx não dispara com tráfego quase zero
-- [ ] Mensagem diz qual site/serviço/certificado e o valor atual
-- [ ] Smoke: regras existem pela API do Grafana; a de certificado entra em disparo com a série falsa do ticket 03 (sem enviar Telegram de verdade)
-- [ ] README: criar o bot no BotFather, achar o chat ID, preencher o `.env`, mandar um alerta de teste
+- [x] Alertas pelo Grafana, sem Alertmanager
+- [x] Contact point Telegram e política de notificação provisionados; envio de resolução ligado
+- [x] As cinco regras com os limites da spec, ajustáveis num lugar só
+- [x] Regra de 5xx não dispara com tráfego quase zero
+- [x] Mensagem diz qual site/serviço/certificado e o valor atual
+- [x] Smoke: regras existem pela API do Grafana; a de certificado entra em disparo com a série falsa do ticket 03 (sem enviar Telegram de verdade)
+- [x] README: criar o bot no BotFather, achar o chat ID, preencher o `.env`, mandar um alerta de teste

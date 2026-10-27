@@ -11,11 +11,11 @@
 
 **Blocked by:** 03 (túnel e coleta da VPS)
 
-Status: ready-for-agent
+Status: ready-for-human
 
-- [ ] Imagem com tag fixa; dados em volume nomeado; login exige a senha do `.env` (sem `admin/admin`)
-- [ ] Fonte de dados Prometheus como padrão, provisionada
-- [ ] Painéis Traefik e Node Exporter partem dos painéis públicos da comunidade, salvos como JSON no repositório (não importados por ID em tempo de execução), ajustados aos nomes dos jobs
-- [ ] Painel Sites próprio, mostrando dias até vencer o certificado (Traefik e blackbox lado a lado)
-- [ ] Smoke: Grafana saudável pela API; fonte de dados e os três painéis existem; Grafana não responde fora de `127.0.0.1`
-- [ ] Painéis mostram dados com o alvo falso do smoke (sem "No data" nos principais)
+- [x] Imagem com tag fixa; dados em volume nomeado; login exige a senha do `.env` (sem `admin/admin`)
+- [x] Fonte de dados Prometheus como padrão, provisionada
+- [x] Painéis Traefik e Node Exporter partem dos painéis públicos da comunidade, salvos como JSON no repositório (não importados por ID em tempo de execução), ajustados aos nomes dos jobs
+- [x] Painel Sites próprio, mostrando dias até vencer o certificado (Traefik e blackbox lado a lado)
+- [x] Smoke: Grafana saudável pela API; fonte de dados e os três painéis existem; Grafana não responde fora de `127.0.0.1`
+- [x] Painéis mostram dados com o alvo falso do smoke (sem "No data" nos principais)

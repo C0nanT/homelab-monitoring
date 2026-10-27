@@ -11,11 +11,11 @@
 
 **Blocked by:** None (can start immediately)
 
-Status: ready-for-agent
+Status: ready-for-human
 
-- [ ] Serviço com tag fixa, `network_mode: host`, `pid: host`, raiz do host montada só para leitura, escutando em `127.0.0.1:9100`
-- [ ] Fora da rede `proxy`
-- [ ] Nova verificação em `testes/verificacoes/`: responde em `127.0.0.1:9100` com métricas `node_`; não responde no IP não-loopback da máquina; não responde de um container vizinho na rede `proxy`
-- [ ] `testes/smoke.sh` e `testes/docs.sh` passam
-- [ ] README do `traefik-default` cita a porta 9100 junto com 8080/8082 (loopback, acesso por túnel) e o roteiro de versão cobre a nova imagem
-- [ ] Ainda não aplicado na VPS (fica no ticket 06)
+- [x] Serviço com tag fixa, `network_mode: host`, `pid: host`, raiz do host montada só para leitura, escutando em `127.0.0.1:9100`
+- [x] Fora da rede `proxy`
+- [x] Nova verificação em `testes/verificacoes/`: responde em `127.0.0.1:9100` com métricas `node_`; não responde no IP não-loopback da máquina; não responde de um container vizinho na rede `proxy`
+- [x] `testes/smoke.sh` e `testes/docs.sh` passam
+- [x] README do `traefik-default` cita a porta 9100 junto com 8080/8082 (loopback, acesso por túnel) e o roteiro de versão cobre a nova imagem
+- [x] Ainda não aplicado na VPS (fica no ticket 06)

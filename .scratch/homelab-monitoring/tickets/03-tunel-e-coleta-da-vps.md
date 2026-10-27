@@ -11,13 +11,13 @@
 
 **Blocked by:** 01 (pilha mínima), 02 (node exporter na borda)
 
-Status: ready-for-agent
+Status: ready-for-human
 
-- [ ] autossh com `ExitOnForwardFailure`, keepalive e `StrictHostKeyChecking` ligado com `known_hosts` fixo
-- [ ] Chave privada e `known_hosts` montados só leitura de pasta ignorada pelo git; host e usuário vêm do `.env`
-- [ ] Nenhuma porta do túnel publicada no PC; túnel manual do painel (`-L 8080 -L 8082`) funciona ao mesmo tempo
-- [ ] Jobs `traefik` e `node` apontam para o serviço do túnel
-- [ ] Alvo falso do smoke inclui uma `traefik_tls_certs_not_after` vencendo em menos de 20 dias (usada no ticket 05)
-- [ ] Smoke: `traefik` e `node` aparecem `up` pela API do Prometheus
-- [ ] README do `traefik-default`: criar `metricas` sem shell/senha, `authorized_keys` com `restrict,port-forwarding,permitopen="127.0.0.1:8082",permitopen="127.0.0.1:9100"`, conferir `AllowTcpForwarding` do `sshd`, link para o `homelab-monitoring`
-- [ ] README do `homelab-monitoring`: gerar a chave dedicada, pegar o `known_hosts` da VPS, preencher o `.env`
+- [x] autossh com `ExitOnForwardFailure`, keepalive e `StrictHostKeyChecking` ligado com `known_hosts` fixo
+- [x] Chave privada e `known_hosts` montados só leitura de pasta ignorada pelo git; host e usuário vêm do `.env`
+- [x] Nenhuma porta do túnel publicada no PC; túnel manual do painel (`-L 8080 -L 8082`) funciona ao mesmo tempo
+- [x] Jobs `traefik` e `node` apontam para o serviço do túnel
+- [x] Alvo falso do smoke inclui uma `traefik_tls_certs_not_after` vencendo em menos de 20 dias (usada no ticket 05)
+- [x] Smoke: `traefik` e `node` aparecem `up` pela API do Prometheus
+- [x] README do `traefik-default`: criar `metricas` sem shell/senha, `authorized_keys` com `restrict,port-forwarding,permitopen="127.0.0.1:8082",permitopen="127.0.0.1:9100"`, conferir `AllowTcpForwarding` do `sshd`, link para o `homelab-monitoring`
+- [x] README do `homelab-monitoring`: gerar a chave dedicada, pegar o `known_hosts` da VPS, preencher o `.env`

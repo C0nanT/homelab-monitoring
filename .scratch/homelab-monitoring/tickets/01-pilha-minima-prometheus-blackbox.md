@@ -11,15 +11,15 @@
 
 **Blocked by:** None (can start immediately)
 
-Status: ready-for-agent
+Status: ready-for-human
 
-- [ ] Imagens com tag de versão fixa; README com roteiro de atualização no estilo do `traefik-default`
-- [ ] Serviços com `restart: unless-stopped`; dados do Prometheus em volume nomeado; retenção de 90 dias
-- [ ] Módulo do blackbox exige HTTPS válido, segue redirecionamentos, usa IPv4, aceita 2xx
-- [ ] Lista de alvos num único lugar, separada do resto da config; adicionar site = adicionar uma linha
-- [ ] Job `sites` usa `/probe` com relabel `target`→`instance`
-- [ ] Smoke: alvo no ar dá `probe_success` 1, alvo fora dá 0 (pela API do Prometheus)
-- [ ] Smoke: Prometheus não responde no IP não-loopback do PC
-- [ ] Smoke derruba tudo no final mesmo com falha; segue o formato do `testes/smoke.sh` do `traefik-default` (contador de falhas, verificações por pasta)
-- [ ] `.env` e pasta de chaves no `.gitignore`; `.env.example` versionado
-- [ ] README explica a arquitetura (PC → túnel → loopback da VPS; blackbox → internet) e o aviso de que o uptime só vale com o PC ligado
+- [x] Imagens com tag de versão fixa; README com roteiro de atualização no estilo do `traefik-default`
+- [x] Serviços com `restart: unless-stopped`; dados do Prometheus em volume nomeado; retenção de 90 dias
+- [x] Módulo do blackbox exige HTTPS válido, segue redirecionamentos, usa IPv4, aceita 2xx
+- [x] Lista de alvos num único lugar, separada do resto da config; adicionar site = adicionar uma linha
+- [x] Job `sites` usa `/probe` com relabel `target`→`instance`
+- [x] Smoke: alvo no ar dá `probe_success` 1, alvo fora dá 0 (pela API do Prometheus)
+- [x] Smoke: Prometheus não responde no IP não-loopback do PC
+- [x] Smoke derruba tudo no final mesmo com falha; segue o formato do `testes/smoke.sh` do `traefik-default` (contador de falhas, verificações por pasta)
+- [x] `.env` e pasta de chaves no `.gitignore`; `.env.example` versionado
+- [x] README explica a arquitetura (PC → túnel → loopback da VPS; blackbox → internet) e o aviso de que o uptime só vale com o PC ligado
