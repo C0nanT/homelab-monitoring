@@ -27,7 +27,16 @@
   "fiscalYearStartMonth": 0,
   "gnetId": 17346,
   "graphTooltip": 0,
-  "links": [],
+  "links": [
+    {
+      "title": "Logs",
+      "type": "link",
+      "icon": "doc",
+      "url": "/d/homelab-logs/logs",
+      "targetBlank": false,
+      "tooltip": "Logs dos sites no Loki"
+    }
+  ],
   "liveNow": false,
   "panels": [
     {

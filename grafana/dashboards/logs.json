@@ -1,0 +1,357 @@
+{
+  "uid": "homelab-logs",
+  "title": "Logs",
+  "tags": [
+    "homelab",
+    "logs"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "editable": false,
+  "refresh": "1m",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "description": "Logs dos sites guardados no Loki da VPS (30 dias): aplicação e log de acesso do Traefik, com busca de texto.",
+  "templating": {
+    "list": [
+      {
+        "name": "site",
+        "label": "Site",
+        "type": "custom",
+        "query": "conan-torres,bbcontainer,traefik",
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "selected": true,
+          "text": "conan-torres",
+          "value": "conan-torres"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "conan-torres",
+            "value": "conan-torres"
+          },
+          {
+            "selected": false,
+            "text": "bbcontainer",
+            "value": "bbcontainer"
+          },
+          {
+            "selected": false,
+            "text": "traefik",
+            "value": "traefik"
+          }
+        ]
+      },
+      {
+        "name": "busca",
+        "label": "Buscar texto",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ]
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Linhas de erro",
+      "description": "Linhas por intervalo que vieram do stderr ou trazem 'error' no texto da saída padrão.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({projeto=\"$site\",stream=\"stderr\"} [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "stderr"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({projeto=\"$site\",stream=\"stdout\"} |~ \"(?i)level=error|error:\" [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "error no texto"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Respostas por classe de status",
+      "description": "Respostas do site por classe de status, contadas no log de acesso do Traefik (o router do site). Na borda (traefik) não há log de acesso por router.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "2xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "3xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "4xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({projeto=\"traefik\",tipo=\"acesso\",router=~\"$site@.+\"} | json | DownstreamStatus >= 200 and DownstreamStatus < 300 [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "2xx"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({projeto=\"traefik\",tipo=\"acesso\",router=~\"$site@.+\"} | json | DownstreamStatus >= 300 and DownstreamStatus < 400 [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "3xx"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({projeto=\"traefik\",tipo=\"acesso\",router=~\"$site@.+\"} | json | DownstreamStatus >= 400 and DownstreamStatus < 500 [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "4xx"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({projeto=\"traefik\",tipo=\"acesso\",router=~\"$site@.+\"} | json | DownstreamStatus >= 500 and DownstreamStatus < 600 [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "5xx"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "logs",
+      "title": "Logs da aplicação",
+      "description": "Saída (stdout e stderr) dos containers do projeto escolhido; na borda, o log do próprio Traefik (sem o log de acesso).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none",
+        "prettifyLogMessage": false
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{projeto=\"$site\",tipo!=\"acesso\"} |= \"$busca\"",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "logs",
+      "title": "Log de acesso",
+      "description": "Log de acesso do Traefik para o site: status, método, caminho, ClientHost e duração em ns (campos extraídos com | json).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none",
+        "prettifyLogMessage": false
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{projeto=\"traefik\",tipo=\"acesso\",router=~\"$site@.+\"} |= \"$busca\" | json | line_format \"{{.DownstreamStatus}} {{.RequestMethod}} {{.RequestPath}} {{.ClientHost}} {{.Duration}}ns\"",
+          "queryType": "range"
+        }
+      ]
+    }
+  ]
+}
