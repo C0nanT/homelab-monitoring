@@ -11,11 +11,11 @@
 
 **Blocked by:** 02
 
-Status: ready-for-agent
+Status: ready-for-human
 
-- [ ] Painel `Logs` (uid fixo) em `grafana/dashboards/`, fonte `loki`, variável `site` (sites por padrão, borda como opção), caixa de busca
-- [ ] Painéis: logs da aplicação, log de acesso (status, método, caminho, `ClientHost`, duração via `| json`), série de linhas de erro, respostas por classe de status
-- [ ] Link para o painel Logs no topo de Sites e Traefik
-- [ ] Smoke: o painel existe e as consultas dele, executadas pela API do Grafana com as linhas injetadas do ticket 02, devolvem dados filtrados pelo site escolhido
-- [ ] `testes/smoke.sh` e `testes/docs.sh` passam
-- [ ] README: seção "Logs" (painel, Explore, exemplos de LogQL), tabela de painéis atualizada
+- [x] Painel `Logs` (uid fixo) em `grafana/dashboards/`, fonte `loki`, variável `site` (sites por padrão, borda como opção), caixa de busca
+- [x] Painéis: logs da aplicação, log de acesso (status, método, caminho, `ClientHost`, duração via `| json`), série de linhas de erro, respostas por classe de status
+- [x] Link para o painel Logs no topo de Sites e Traefik
+- [x] Smoke: o painel existe e as consultas dele, executadas pela API do Grafana com as linhas injetadas do ticket 02, devolvem dados filtrados pelo site escolhido
+- [x] `testes/smoke.sh` e `testes/docs.sh` passam
+- [x] README: seção "Logs" (painel, Explore, exemplos de LogQL), tabela de painéis atualizada
