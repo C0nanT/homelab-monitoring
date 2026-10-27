@@ -2,8 +2,9 @@
 
 Monitoramento da VPS (o servidor do [`traefik-default`](../traefik-default))
 rodando **no meu PC**, não na VPS: Prometheus guarda as métricas, o blackbox
-exporter testa os sites por fora e o Grafana mostra e avisa no Telegram. O
-UptimeRobot cobre os sites 24/7, mesmo com o PC desligado.
+exporter testa os sites por fora e o Grafana mostra e avisa no Telegram. É
+100% local: não há monitor externo, então com o PC desligado ninguém vigia os
+sites.
 
 ## Arquitetura
 
@@ -38,8 +39,8 @@ UptimeRobot cobre os sites 24/7, mesmo com o PC desligado.
 
 > **Aviso: o uptime medido aqui só vale com o PC ligado.** Se o PC dorme,
 > desliga ou perde a internet, a pilha para de coletar e de avisar, e isso
-> não significa que a VPS caiu. A cobertura 24/7 dos sites fica com o
-> UptimeRobot (veja "UptimeRobot").
+> não significa que a VPS caiu. Não há monitor externo: com o PC desligado,
+> ninguém avisa se um site cair (decisão consciente, pilha 100% local).
 
 ## Roteiro de versões
 
@@ -48,8 +49,8 @@ UptimeRobot cobre os sites 24/7, mesmo com o PC desligado.
 3. Túnel e coleta das métricas da VPS: jobs `traefik` e `node`.
 4. Grafana provisionado: fonte de dados e painéis.
 5. Alertas no Telegram (BotFather: token e chat ID no `.env`).
-6. **Colocar no ar (esta versão)**: VPS, túnel real, checklist manual e
-   UptimeRobot (veja "Colocar no ar").
+6. **Colocar no ar (esta versão)**: VPS, túnel real e checklist manual
+   (veja "Colocar no ar").
 
 ## Subir a pilha
 
@@ -258,9 +259,7 @@ até a VPS", abaixo; gere-a antes.
 `.env`) e "Criar o bot e preencher o `.env`" (Telegram); depois
 `docker compose up -d --build`.
 
-**5. UptimeRobot.** Veja "UptimeRobot", abaixo.
-
-**6. Confira tudo** com o "Checklist manual".
+**5. Confira tudo** com o "Checklist manual".
 
 ## Checklist manual
 
@@ -290,35 +289,6 @@ no túnel ou no bot.
   o loopback da VPS, que não muda com o container; nada a refazer).
 - [ ] **O alerta de teste chega no Telegram.** Veja "Mandar um alerta de
   teste".
-- [ ] **Monitores do UptimeRobot verdes.** Os dois monitores (veja
-  "UptimeRobot") aparecem *Up* no painel do UptimeRobot.
-
-## UptimeRobot
-
-A pilha só vê os sites com o PC ligado. O [UptimeRobot](https://uptimerobot.com)
-testa os sites de fora, 24/7, no plano gratuito, e avisa quando caem. É
-configurado à mão no site (sem automação); os nomes dos menus podem mudar um
-pouco.
-
-1. Crie uma conta gratuita (*Free plan*) em <https://uptimerobot.com>.
-2. Cadastre o aviso primeiro, em *Alert Contacts* (ou *Integrations*):
-   - **e-mail**: o da conta já vem cadastrado; basta confirmar;
-   - **Telegram** (opcional): se a integração com o Telegram estiver
-     disponível no seu plano, siga o assistente dela (ele dá um link para
-     abrir no Telegram e liga o bot do UptimeRobot à sua conversa). Se não
-     estiver, fique com o e-mail.
-3. Crie um monitor para cada domínio, com *New monitor*:
-   - tipo **HTTP(s)**;
-   - URL `https://conantorres.dev` (o outro: `https://bbcontainermodular.com`);
-   - intervalo: o menor que o plano gratuito oferecer;
-   - em *Alert contacts*, marque o contato do passo 2.
-4. Confira: os dois monitores ficam verdes (*Up*) em poucos minutos. Para
-   testar o aviso, crie um monitor temporário para uma URL que não existe
-   (ex.: `https://conantorres.dev.invalid`), espere o aviso chegar e apague
-   esse monitor.
-
-O uptime "oficial" dos sites é o do UptimeRobot; o `probe_success` da pilha
-só cobre as horas com o PC ligado.
 
 ## Adicionar um site
 

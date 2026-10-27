@@ -18,7 +18,7 @@ Um repositório novo, `homelab-monitoring`, com uma pilha Docker Compose que rod
 
 Na VPS, o `traefik-default` ganha um node exporter (CPU, memória, disco, rede do host), ouvindo só em `127.0.0.1:9100`, e um usuário `metricas` sem shell cuja chave SSH só pode abrir túnel para essas duas portas. Nada novo é publicado na internet.
 
-Como a pilha só funciona com o PC ligado, um monitor externo gratuito (UptimeRobot) fica como alarme 24/7 de "site fora do ar", independente do meu PC.
+~~Como a pilha só funciona com o PC ligado, um monitor externo gratuito (UptimeRobot) fica como alarme 24/7 de "site fora do ar", independente do meu PC.~~ Descartado em 2026-10-27: a pilha é 100% local (veja Further Notes).
 
 ## User Stories
 
@@ -51,7 +51,7 @@ Como a pilha só funciona com o PC ligado, um monitor externo gratuito (UptimeRo
 27. Como dono da VPS, quero um histórico de pelo menos 90 dias no Prometheus, para comparar semanas e meses.
 28. Como dono da VPS, quero que os dados do Prometheus e do Grafana sobrevivam a `docker compose down` e a atualizações de imagem, para não perder histórico.
 29. Como dono da VPS, quero versões fixas de todas as imagens, com um roteiro para atualizá-las, como no `traefik-default`, para não ter mudanças surpresa.
-30. Como dono da VPS, quero um monitor externo (UptimeRobot) para os dois domínios, com aviso no Telegram ou e-mail, para ser avisado de queda mesmo com o PC desligado.
+30. ~~(descartada em 2026-10-27)~~ Como dono da VPS, quero um monitor externo (UptimeRobot) para os dois domínios, com aviso no Telegram ou e-mail, para ser avisado de queda mesmo com o PC desligado.
 31. Como dono da VPS, quero um README que explique a arquitetura (PC → túnel → loopback da VPS; blackbox → internet) e por que cada peça existe, para servir de estudo.
 32. Como dono da VPS, quero no README um checklist de instalação no lado da VPS (usuário `metricas`, chave restrita, node exporter), para refazer em outra VPS.
 33. Como dono da VPS, quero no README a limitação explícita de que o uptime medido pela pilha só vale para as horas em que o PC estava ligado, para não ler o número errado.
@@ -121,7 +121,7 @@ Como a pilha só funciona com o PC ligado, um monitor externo gratuito (UptimeRo
 - Logs centralizados (Loki/Promtail) e tracing.
 - cAdvisor e métricas por container.
 - Métricas internas dos sites (bbcontainer, conan-torres); só o que se vê pelo Traefik e pelo blackbox.
-- Monitoramento 24/7 pela pilha local (coberto pelo UptimeRobot).
+- Monitoramento 24/7 (pilha 100% local; com o PC desligado, ninguém vigia os sites).
 - Automatizar a configuração do UptimeRobot ou do bot do Telegram.
 - Ligar `addRoutersLabels` no Traefik (métricas por router); as por serviço bastam por agora.
 - Acesso ao Grafana de fora do PC (celular, outra máquina).
@@ -130,6 +130,7 @@ Como a pilha só funciona com o PC ligado, um monitor externo gratuito (UptimeRo
 
 - **Mudança em relação à conversa:** a ideia inicial era autossh como serviço systemd do usuário no PC. A spec troca por um container na pilha, para evitar portas no loopback do PC, conflito com o túnel manual do painel (8082) e a configuração de `linger`. Se preferir systemd, só muda o serviço `tunel`.
 - **Palpites assumidos:** retenção de 90 dias, limites dos alertas (20 dias, 5 min, 5% de 5xx, 85% de disco) e alertas pelo Grafana em vez de Alertmanager. Todos são ajustáveis sem mudar a arquitetura.
-- **Uptime enganoso:** o `probe_success` medido pela pilha só cobre as horas com o PC ligado. O número de uptime "oficial" é o do UptimeRobot.
+- **Uptime enganoso:** o `probe_success` medido pela pilha só cobre as horas com o PC ligado.
+- **Decisão de 2026-10-27:** UptimeRobot descartado. A pilha fica 100% local; com o PC desligado não há aviso de queda, e isso é aceito.
 - **Token da Cloudflare** expira em 26/10/2027 (ver `HANDOFF.md` do `traefik-default`). O alerta de certificado com menos de 20 dias é a rede de segurança se a troca for esquecida.
 - O repositório `homelab-monitoring` foi criado vazio (`git init`, branch `main`) só com esta spec; ainda sem remoto no GitHub.
