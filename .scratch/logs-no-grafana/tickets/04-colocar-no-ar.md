@@ -10,8 +10,8 @@
 
 Status: ready-for-human
 
-- [ ] Na VPS: Loki e Alloy de pé; 3100 só no loopback; memória dentro do orçamento
-- [ ] `authorized_keys` do `metricas` com `permitopen="127.0.0.1:3100"`; 8080 continua recusada
-- [ ] No PC: túnel saudável com 3100; painel Logs com linhas reais de `conantorres.dev` e `bbcontainermodular.com` (app e acesso)
-- [ ] Logs continuam chegando depois de um deploy (container recriado)
-- [ ] HANDOFF do `traefik-default` registra o item novo
+- [x] Na VPS: Loki e Alloy de pé; 3100 só no loopback; memória dentro do orçamento
+- [x] `authorized_keys` do `metricas` com `permitopen="127.0.0.1:3100"`; 8080 continua recusada
+- [x] No PC: túnel saudável com 3100; painel Logs com linhas reais de `conantorres.dev` e `bbcontainermodular.com` (app e acesso)
+- [x] Logs continuam chegando depois de um deploy (container recriado)
+- [x] HANDOFF do `traefik-default` registra o item novo
