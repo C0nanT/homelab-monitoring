@@ -88,4 +88,6 @@ tem grafana/provisioning/datasources/loki.yml 'http://tunel:3100' "fonte de dado
 nao_tem README.md 'UptimeRobot' "README sem monitor externo (pilha 100% local)"
 nao_tem README.md '(nas próximas etapas)' "README sem texto de etapa futura do Grafana"
 nao_tem README.md 'provisionado (esta versão)' "roteiro não marca a etapa 4 como atual"
+tem README.md 'loki_dados_bytes' "README: painel Logs mostra o disco do Loki"
+tem testes/verificacoes/07-painel-logs.sh 'Disco do Loki' "smoke confere o disco do Loki no painel Logs"
 exit $((falhas > 0))
