@@ -76,7 +76,7 @@
       "id": 1,
       "type": "timeseries",
       "title": "Linhas de erro",
-      "description": "Linhas por intervalo que vieram do stderr ou trazem 'error' no texto da saída padrão.",
+      "description": "Linhas por intervalo que vieram do stderr ou trazem 'error' no texto da saída padrão (na borda, sem o ruído do socket-proxy).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -118,7 +118,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({projeto=\"$site\",stream=\"stderr\"} [$__auto]))",
+          "expr": "sum(count_over_time({projeto=\"$site\",servico!=\"socket-proxy\",stream=\"stderr\"} [$__auto]))",
           "queryType": "range",
           "legendFormat": "stderr"
         },
@@ -129,7 +129,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({projeto=\"$site\",stream=\"stdout\"} |~ \"(?i)level=error|error:\" [$__auto]))",
+          "expr": "sum(count_over_time({projeto=\"$site\",servico!=\"socket-proxy\",stream=\"stdout\"} |~ \"(?i)level=error|error:\" [$__auto]))",
           "queryType": "range",
           "legendFormat": "error no texto"
         }
@@ -139,7 +139,7 @@
       "id": 2,
       "type": "timeseries",
       "title": "Respostas por classe de status",
-      "description": "Respostas do site por classe de status, contadas no log de acesso do Traefik (o router do site). Na borda (traefik) não há log de acesso por router.",
+      "description": "Respostas do site por classe de status, contadas no log de acesso do Traefik (routers do site e do www). Na borda (traefik) não há log de acesso por router.",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -242,7 +242,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({projeto=\"traefik\",tipo=\"acesso\",router=~\"$site@.+\"} | json | DownstreamStatus >= 200 and DownstreamStatus < 300 [$__auto]))",
+          "expr": "sum(count_over_time({projeto=\"traefik\",tipo=\"acesso\",router=~\"$site(-www)?@.+\"} | json | DownstreamStatus >= 200 and DownstreamStatus < 300 [$__auto]))",
           "queryType": "range",
           "legendFormat": "2xx"
         },
@@ -253,7 +253,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({projeto=\"traefik\",tipo=\"acesso\",router=~\"$site@.+\"} | json | DownstreamStatus >= 300 and DownstreamStatus < 400 [$__auto]))",
+          "expr": "sum(count_over_time({projeto=\"traefik\",tipo=\"acesso\",router=~\"$site(-www)?@.+\"} | json | DownstreamStatus >= 300 and DownstreamStatus < 400 [$__auto]))",
           "queryType": "range",
           "legendFormat": "3xx"
         },
@@ -264,7 +264,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({projeto=\"traefik\",tipo=\"acesso\",router=~\"$site@.+\"} | json | DownstreamStatus >= 400 and DownstreamStatus < 500 [$__auto]))",
+          "expr": "sum(count_over_time({projeto=\"traefik\",tipo=\"acesso\",router=~\"$site(-www)?@.+\"} | json | DownstreamStatus >= 400 and DownstreamStatus < 500 [$__auto]))",
           "queryType": "range",
           "legendFormat": "4xx"
         },
@@ -275,7 +275,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({projeto=\"traefik\",tipo=\"acesso\",router=~\"$site@.+\"} | json | DownstreamStatus >= 500 and DownstreamStatus < 600 [$__auto]))",
+          "expr": "sum(count_over_time({projeto=\"traefik\",tipo=\"acesso\",router=~\"$site(-www)?@.+\"} | json | DownstreamStatus >= 500 and DownstreamStatus < 600 [$__auto]))",
           "queryType": "range",
           "legendFormat": "5xx"
         }
@@ -285,7 +285,7 @@
       "id": 3,
       "type": "logs",
       "title": "Logs da aplicação",
-      "description": "Saída (stdout e stderr) dos containers do projeto escolhido; na borda, o log do próprio Traefik (sem o log de acesso).",
+      "description": "Saída (stdout e stderr) dos containers do projeto escolhido; na borda, o log do próprio Traefik (sem o log de acesso nem o ruído do socket-proxy).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -312,7 +312,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{projeto=\"$site\",tipo!=\"acesso\"} |= \"$busca\"",
+          "expr": "{projeto=\"$site\",tipo!=\"acesso\",servico!=\"socket-proxy\"} |= `$busca`",
           "queryType": "range"
         }
       ]
@@ -321,7 +321,7 @@
       "id": 4,
       "type": "logs",
       "title": "Log de acesso",
-      "description": "Log de acesso do Traefik para o site: status, método, caminho, ClientHost e duração em ns (campos extraídos com | json).",
+      "description": "Log de acesso do Traefik para o site (routers do site e do www): status, método, caminho, ClientHost e duração em ms (campos extraídos com | json).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -348,7 +348,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{projeto=\"traefik\",tipo=\"acesso\",router=~\"$site@.+\"} |= \"$busca\" | json | line_format \"{{.DownstreamStatus}} {{.RequestMethod}} {{.RequestPath}} {{.ClientHost}} {{.Duration}}ns\"",
+          "expr": "{projeto=\"traefik\",tipo=\"acesso\",router=~\"$site(-www)?@.+\"} |= `$busca` | json | line_format `{{.DownstreamStatus}} {{.RequestMethod}} {{.RequestPath}} {{.ClientHost}} {{ divf .Duration 1000000 | printf \"%.1f\" }}ms`",
           "queryType": "range"
         }
       ]

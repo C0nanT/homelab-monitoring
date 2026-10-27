@@ -24,6 +24,28 @@ grafana_api() {
   curl -sf --max-time 10 -u "admin:$GRAFANA_SENHA_ADMIN" "$@" "$GRAFANA_URL$caminho"
 }
 
+# As três funções abaixo também são usadas por 06-loki.sh, 07-painel-logs.sh
+# e 98-loki-fora.sh (carregados depois deste arquivo).
+
+# fonte_saudavel UID -> sucesso se o Grafana testa a fonte de dados com OK.
+fonte_saudavel() {
+  grafana_api "/api/datasources/uid/$1/health" --max-time 20 |
+    jq -e '.status=="OK"' >/dev/null
+}
+
+# grafana_ds_query CORPO_JSON -> resposta de /api/ds/query (a consulta que um
+# painel faz, executada pelo próprio Grafana).
+grafana_ds_query() {
+  grafana_api /api/ds/query --max-time 15 -H 'Content-Type: application/json' -d "$1"
+}
+
+# grafana_loki MODO EXPRESSAO -> resposta do Grafana para uma consulta LogQL
+# na fonte loki (MODO: range ou instant), na última hora.
+grafana_loki() {
+  grafana_ds_query "$(jq -n --arg m "$1" --arg e "$2" \
+    '{queries:[{refId:"A",datasource:{type:"loki",uid:"loki"},expr:$e,queryType:$m,maxLines:100}],from:"now-1h",to:"now"}')"
+}
+
 afirmar "login com a senha do .env funciona" grafana_api /api/org
 afirmar "admin/admin NÃO funciona (senha vem do .env)" \
   bash -c '! curl -sf --max-time 10 -u admin:admin "$1/api/org"' _ "$GRAFANA_URL"
@@ -50,8 +72,7 @@ afirmar "fonte de dados Prometheus é a padrão" \
   test "$(jq -r '[.[]|select(.uid=="prometheus")|.isDefault]|first' <<<"$DS_JSON")" = true
 afirmar "fonte de dados é provisionada (somente leitura na interface)" \
   test "$(jq -r '[.[]|select(.uid=="prometheus")|.readOnly]|first' <<<"$DS_JSON")" = true
-afirmar "Grafana testa a fonte de dados com sucesso" \
-  bash -c 'curl -sf --max-time 10 -u "admin:$2" "$1/api/datasources/uid/prometheus/health" | jq -e ".status==\"OK\"" >/dev/null' _ "$GRAFANA_URL" "$GRAFANA_SENHA_ADMIN"
+afirmar "Grafana testa a fonte de dados com sucesso" fonte_saudavel prometheus
 
 PAINEIS_JSON="$(grafana_api '/api/search?type=dash-db' || echo '[]')"
 for titulo in "Traefik" "Node Exporter Full" "Sites"; do
@@ -76,10 +97,7 @@ painel_expr() {
 # grafana_series EXPRESSAO -> quantidade de séries que o Grafana recebe do
 # Prometheus (consulta instantânea em /api/ds/query).
 grafana_series() {
-  local corpo
-  corpo="$(jq -n --arg e "$1" '{queries:[{refId:"A",datasource:{type:"prometheus",uid:"prometheus"},expr:$e,instant:true,range:false}],from:"now-5m",to:"now"}')"
-  curl -sf --max-time 15 -u "admin:$GRAFANA_SENHA_ADMIN" -H 'Content-Type: application/json' \
-    -d "$corpo" "$GRAFANA_URL/api/ds/query" |
+  grafana_ds_query "$(jq -n --arg e "$1" '{queries:[{refId:"A",datasource:{type:"prometheus",uid:"prometheus"},expr:$e,instant:true,range:false}],from:"now-5m",to:"now"}')" |
     jq -r '[.results.A.frames[]?|(.data.values[1] // [])|length]|add // 0'
 }
 

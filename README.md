@@ -193,20 +193,27 @@ desligado) e chegam ao Grafana pelo túnel (`tunel:3100`, fonte de dados `loki`)
 O painel **Logs** (`grafana/dashboards/logs.json`, uid `homelab-logs`) tem:
 
 - **Site**: `conan-torres`, `bbcontainer` ou `traefik` (a borda; sem log de
-  acesso por router). Escolha o período no seletor de tempo do Grafana.
+  acesso por router e sem o ruído do socket-proxy, que registra cada consulta
+  do Alloy). Escolha o período no seletor de tempo do Grafana.
 - **Buscar texto**: filtra as duas listas de logs (ex.: `Error`, um caminho,
-  um IP). Deixe vazio para ver tudo.
+  um IP, `msg="acme`). O texto vale literal, aspas e `\` inclusive (vai entre
+  crases na consulta: só uma crase no texto quebra a busca). Deixe vazio para
+  ver tudo.
 - **Linhas de erro**: linhas por intervalo vindas do stderr ou com `error`
   no texto.
 - **Respostas por classe de status**: 2xx, 3xx, 4xx e 5xx do site, contadas no
   log de acesso (útil para cruzar com o alerta de 5xx).
 - **Logs da aplicação** e **Log de acesso** (status, método, caminho,
-  `ClientHost` e duração em ns, extraídos com `| json`).
+  `ClientHost` e duração em ms, extraídos com `| json`).
+
+O log de acesso e as classes de status somam o router do site e o do `www`
+(`router=~"$site(-www)?@.+"`; a regex do Loki casa o valor inteiro).
 
 Com o túnel fora, só este painel mostra erro de conexão; o resto do Grafana
 segue normal. Para consultas livres use *Explore* (fonte `loki`). Rótulos:
 `projeto`, `servico`, `stream`; no Traefik também `tipo` (`acesso` | `traefik`)
-e, no acesso, `router` (ex.: `conan-torres@docker`). Exemplos de LogQL:
+e, no acesso, `router` (ex.: `conan-torres@docker`, `conan-torres-www@docker`).
+Exemplos de LogQL:
 
 ```logql
 {projeto="conan-torres"} |= "Error"
@@ -214,6 +221,7 @@ e, no acesso, `router` (ex.: `conan-torres@docker`). Exemplos de LogQL:
 {tipo="acesso"} | json | ClientHost = "203.0.113.7"
 sum by (router) (count_over_time({tipo="acesso"} [5m]))
 {projeto="traefik", tipo="traefik"} |= "acme"
+{tipo="acesso"} | json | line_format `{{.RequestPath}} {{ divf .Duration 1000000 | printf "%.1f" }}ms`
 ```
 
 Um site novo na borda entra no seletor `site` editando a variável no JSON

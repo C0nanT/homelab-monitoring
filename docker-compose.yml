@@ -66,8 +66,8 @@ services:
 
   # Túnel SSH (autossh) até o loopback da VPS: encaminha 127.0.0.1:8082
   # (Traefik), 127.0.0.1:9100 (node exporter) e 127.0.0.1:3100 (Loki) da VPS
-  # para tunel:8082, tunel:9100 e tunel:3100 nesta rede interna. Reconecta sozinho (keepalive + autossh +
-  # restart). Detalhes em tunel/iniciar.sh.
+  # para tunel:8082, tunel:9100 e tunel:3100 nesta rede interna. Reconecta
+  # sozinho (keepalive + autossh + restart). Detalhes em tunel/iniciar.sh.
   # Nem o Prometheus nem o Grafana dependem dele de propósito: com o túnel (ou o
   # Loki) fora, a pilha continua testando os sites, os jobs traefik/node
   # aparecem "down" e só a fonte de dados Loki falha.
@@ -100,9 +100,9 @@ services:
         max-size: "10m"
         max-file: "5"
 
-  # Grafana: abre já com as fontes de dados (Prometheus e Loki) e os painéis Traefik,
-  # Host (Node Exporter Full) e Sites, tudo provisionado por arquivo
-  # (grafana/). Recriar do zero não exige clique.
+  # Grafana: abre já com as fontes de dados (Prometheus e Loki) e os painéis
+  # Traefik, Host (Node Exporter Full), Sites e Logs, tudo provisionado por
+  # arquivo (grafana/). Recriar do zero não exige clique.
   grafana:
     image: grafana/grafana:13.2.3
     restart: unless-stopped

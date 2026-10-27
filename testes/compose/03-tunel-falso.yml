@@ -2,12 +2,12 @@
 # Carregado pelo testes/smoke.sh junto com o docker-compose.yml da raiz.
 #
 # O serviço continua se chamando "tunel" (mesmo nome DNS, mesmas portas 8082,
-# 9100 e 3100), então os jobs do prometheus.yml e a fonte Loki valem sem mudança. Em
-# vez do autossh, um nginx serve /metrics com séries do Traefik e do node
-# exporter geradas na hora (lista das séries em
-# testes/fixtures/tunel-falso/gerar-metricas.sh), e a 3100 repassa para um Loki
-# de verdade (serviço loki-falso, abaixo). Nada é construído e nenhum SSH é
-# aberto; a pasta chaves/ não é usada.
+# 9100 e 3100), então os jobs do prometheus.yml e a fonte Loki valem sem
+# mudança. Em vez do autossh, um nginx serve /metrics com séries do Traefik e
+# do node exporter geradas na hora (lista das séries em
+# testes/fixtures/tunel-falso/gerar-metricas.sh), e a 3100 repassa para um
+# Loki de verdade (serviço loki-falso, abaixo). Nada é construído e nenhum SSH
+# é aberto; a pasta chaves/ não é usada.
 #
 # !reset / !override: apagam/substituem o que vem do compose principal
 # (sem eles, build, environment e volumes seriam mesclados).
@@ -36,6 +36,8 @@ services:
     command: ["-config.file=/etc/loki/loki.yaml"]
     volumes:
       - ./testes/fixtures/tunel-falso/loki.yaml:/etc/loki/loki.yaml:ro
+    security_opt:
+      - no-new-privileges:true
 
   # Só no smoke: o Prometheus espera o túnel falso, para a 1ª coleta já dar up.
   # (No compose de verdade ele NÃO espera o túnel: veja docker-compose.yml.)
