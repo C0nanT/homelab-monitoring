@@ -1,0 +1,37 @@
+# Loki do túnel falso do smoke: um único processo, tudo em /tmp, sem
+# autenticação nem internet. Serve só para o smoke ter um Loki de verdade
+# (mesma tag da borda) onde injetar linhas de exemplo pela API de push.
+auth_enabled: false
+server:
+  http_listen_port: 3100
+common:
+  path_prefix: /tmp/loki
+  replication_factor: 1
+  instance_addr: 127.0.0.1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /tmp/loki/chunks
+      rules_directory: /tmp/loki/rules
+schema_config:
+  configs:
+    - from: "2024-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+ingester:
+  # Sem WAL: ele estrangula as escritas quando o disco do host passa de 90%
+  # (e não faz falta aqui). No desligamento, o Loki grava o que tem em memória.
+  wal:
+    enabled: false
+    flush_on_shutdown: true
+limits_config:
+  # As linhas de exemplo levam a hora da injeção, mas não custa nada aceitar.
+  reject_old_samples: false
+analytics:
+  reporting_enabled: false

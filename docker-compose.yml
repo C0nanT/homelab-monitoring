@@ -65,11 +65,12 @@ services:
         max-file: "5"
 
   # Túnel SSH (autossh) até o loopback da VPS: encaminha 127.0.0.1:8082
-  # (Traefik) e 127.0.0.1:9100 (node exporter) da VPS para tunel:8082 e
-  # tunel:9100 nesta rede interna. Reconecta sozinho (keepalive + autossh +
+  # (Traefik), 127.0.0.1:9100 (node exporter) e 127.0.0.1:3100 (Loki) da VPS
+  # para tunel:8082, tunel:9100 e tunel:3100 nesta rede interna. Reconecta sozinho (keepalive + autossh +
   # restart). Detalhes em tunel/iniciar.sh.
-  # O Prometheus NÃO depende dele de propósito: com o túnel fora, a pilha
-  # continua testando os sites e o job traefik/node aparece "down".
+  # Nem o Prometheus nem o Grafana dependem dele de propósito: com o túnel (ou o
+  # Loki) fora, a pilha continua testando os sites, os jobs traefik/node
+  # aparecem "down" e só a fonte de dados Loki falha.
   tunel:
     build: ./tunel
     restart: unless-stopped
@@ -87,8 +88,8 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      # Os dois encaminhamentos estão ouvindo (o ssh só os abre conectado).
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 8082 && nc -z 127.0.0.1 9100"]
+      # Os três encaminhamentos estão ouvindo (o ssh só os abre conectado).
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8082 && nc -z 127.0.0.1 9100 && nc -z 127.0.0.1 3100"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -99,7 +100,7 @@ services:
         max-size: "10m"
         max-file: "5"
 
-  # Grafana: abre já com a fonte de dados Prometheus e os painéis Traefik,
+  # Grafana: abre já com as fontes de dados (Prometheus e Loki) e os painéis Traefik,
   # Host (Node Exporter Full) e Sites, tudo provisionado por arquivo
   # (grafana/). Recriar do zero não exige clique.
   grafana:

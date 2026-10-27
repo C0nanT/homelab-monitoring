@@ -1,12 +1,13 @@
 # Override do smoke test: troca o túnel SSH de verdade por um alvo falso.
 # Carregado pelo testes/smoke.sh junto com o docker-compose.yml da raiz.
 #
-# O serviço continua se chamando "tunel" (mesmo nome DNS, mesmas portas 8082 e
-# 9100), então os jobs traefik e node do prometheus.yml valem sem mudança. Em
+# O serviço continua se chamando "tunel" (mesmo nome DNS, mesmas portas 8082,
+# 9100 e 3100), então os jobs do prometheus.yml e a fonte Loki valem sem mudança. Em
 # vez do autossh, um nginx serve /metrics com séries do Traefik e do node
 # exporter geradas na hora (lista das séries em
-# testes/fixtures/tunel-falso/gerar-metricas.sh). Nada é construído e nenhum
-# SSH é aberto; a pasta chaves/ não é usada.
+# testes/fixtures/tunel-falso/gerar-metricas.sh), e a 3100 repassa para um Loki
+# de verdade (serviço loki-falso, abaixo). Nada é construído e nenhum SSH é
+# aberto; a pasta chaves/ não é usada.
 #
 # !reset / !override: apagam/substituem o que vem do compose principal
 # (sem eles, build, environment e volumes seriam mesclados).
@@ -20,10 +21,21 @@ services:
       - ./testes/fixtures/tunel-falso/gerar-metricas.sh:/gerar-metricas.sh:ro
     command: ["sh", "/gerar-metricas.sh"]
     healthcheck: !override
-      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:8082/metrics && wget -qO /dev/null http://127.0.0.1:9100/metrics"]
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:8082/metrics && wget -qO /dev/null http://127.0.0.1:9100/metrics && nc -z 127.0.0.1 3100"]
       interval: 3s
       timeout: 3s
       retries: 10
+
+  # Loki de verdade (mesma tag da borda) atrás do túnel falso. Começa vazio; o
+  # smoke injeta as linhas de exemplo (testes/verificacoes/06-loki.sh). Sem
+  # healthcheck de propósito: a verificação espera o /ready, e o tunel e o
+  # Grafana não dependem dele (Loki fora não derruba o resto: veja
+  # testes/verificacoes/98-loki-fora.sh).
+  loki-falso:
+    image: ${IMAGEM_LOKI:?definida pelo testes/smoke.env}
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    volumes:
+      - ./testes/fixtures/tunel-falso/loki.yaml:/etc/loki/loki.yaml:ro
 
   # Só no smoke: o Prometheus espera o túnel falso, para a 1ª coleta já dar up.
   # (No compose de verdade ele NÃO espera o túnel: veja docker-compose.yml.)
