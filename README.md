@@ -19,17 +19,18 @@ sites.
 │  grafana ── 127.0.0.1:3000 (só o PC)  │
 │     │                                 │
 │     └─► tunel (autossh) ═══ SSH ═══════════════►  loopback da VPS
-│         tunel:8082, tunel:9100        │            127.0.0.1:8082 Traefik
+│         tunel:8082, :9100, :3100      │            127.0.0.1:8082 Traefik
 └───────────────────────────────────────┘            127.0.0.1:9100 node exporter
+                                                       127.0.0.1:3100 Loki (logs)
 ```
 
 - **blackbox → internet**: testa por HTTPS a raiz e o `www` de
   `conantorres.dev` e `bbcontainermodular.com`, mais os endpoints de health.
   Guarda `probe_success`, latência, status e validade do certificado.
 - **PC → túnel → loopback da VPS**: as métricas do Traefik e do node
-  exporter ficam só no loopback da VPS; um túnel SSH (container `tunel`,
+  exporter (e o Loki, dos logs) ficam só no loopback da VPS; um túnel SSH (container `tunel`,
   usuário `metricas`) as traz para a rede interna da pilha, onde o Prometheus
-  coleta os jobs `traefik` e `node`. Nenhuma porta nova é aberta na VPS nem
+  coleta os jobs `traefik` e `node` e o Grafana consulta o Loki. Nenhuma porta nova é aberta na VPS nem
   publicada no PC.
 - **Grafana** (`127.0.0.1:3000`): já abre com a fonte de dados Prometheus e
   três painéis (Traefik, Node Exporter Full e Sites), tudo provisionado por
@@ -74,8 +75,10 @@ histórico.
 ## Túnel até a VPS
 
 O container `tunel` abre um túnel SSH (autossh) com o usuário `metricas` da
-VPS e encaminha `127.0.0.1:8082` (Traefik) e `127.0.0.1:9100` (node exporter)
-de lá para `tunel:8082` e `tunel:9100` na rede interna da pilha. Ele
+VPS e encaminha `127.0.0.1:8082` (Traefik), `127.0.0.1:9100` (node exporter)
+e `127.0.0.1:3100` (Loki, os logs) de lá para `tunel:8082`, `tunel:9100` e
+`tunel:3100` na rede interna da pilha. O healthcheck do container confere as
+três portas. Ele
 reconecta sozinho: o keepalive do SSH (`ServerAliveInterval`) percebe a
 conexão morta em menos de um minuto (suspensão do PC, troca de rede, VPS
 reiniciada), o autossh reabre, e o Docker reinicia o container se ele cair
@@ -90,6 +93,15 @@ tempo, sem conflito.
 **Antes, na VPS:** crie o usuário `metricas` com a chave restrita, seguindo
 "Monitoramento a partir de outra máquina" no README do
 [`traefik-default`](../traefik-default#monitoramento-a-partir-de-outra-máquina).
+A linha do `authorized_keys` do `metricas` precisa liberar as **três** portas;
+se você montou o usuário antes dos logs, acrescente a terceira (e só ela):
+
+```
+restrict,port-forwarding,permitopen="127.0.0.1:8082",permitopen="127.0.0.1:9100",permitopen="127.0.0.1:3100" ssh-ed25519 AAAA... metricas@homelab
+```
+
+Sem a 3100 liberada, o `ExitOnForwardFailure` derruba o túnel inteiro (e as
+métricas junto): libere a porta na VPS **antes** de subir esta versão no PC.
 
 **No PC**, na pasta deste repositório:
 
@@ -125,7 +137,9 @@ tempo, sem conflito.
 
 `chaves/` está no `.gitignore` (menos o `.gitkeep`) e é montada só leitura
 no container. Com o túnel fora, a pilha continua testando os sites; só os
-jobs `traefik` e `node` ficam `down`.
+jobs `traefik` e `node` ficam `down` e a fonte de dados Loki falha no teste.
+O mesmo vale para o Loki parado na VPS: nem o Prometheus nem o Grafana
+dependem dele para subir.
 
 ## Grafana
 
@@ -135,6 +149,7 @@ Tudo é provisionado por arquivo e versionado: recriar o Grafana do zero
 | O quê | Onde |
 |---|---|
 | Fonte de dados Prometheus (padrão, uid `prometheus`) | `grafana/provisioning/datasources/prometheus.yml` |
+| Fonte de dados Loki (uid `loki`, `http://tunel:3100`, via túnel) | `grafana/provisioning/datasources/loki.yml` |
 | Provedor dos painéis (relê a pasta a cada 30s) | `grafana/provisioning/dashboards/provedor.yml` |
 | Painéis (JSON) | `grafana/dashboards/` |
 | Alertas (contact point, política, regras) | `grafana/provisioning/alerting/` (veja "Alertas no Telegram") |
@@ -261,7 +276,7 @@ curl -m 5 http://IP_DA_VPS:9100/metrics
 **3. Na VPS: usuário `metricas`.** Siga "Monitoramento a partir de outra
 máquina" no README do
 [`traefik-default`](../traefik-default#monitoramento-a-partir-de-outra-máquina)
-(usuário sem shell, chave restrita às portas 8082 e 9100, conferência do
+(usuário sem shell, chave restrita às portas 8082, 9100 e 3100, conferência do
 `sshd` e o teste manual da chave). A chave pública vem do passo 1 de "Túnel
 até a VPS", abaixo; gere-a antes.
 
@@ -280,6 +295,11 @@ no túnel ou no bot.
   (<http://127.0.0.1:9090/targets>), os jobs `sites`, `traefik` e `node`
   estão `UP`; nos painéis Traefik, Node Exporter Full e Sites aparecem dados
   reais da VPS.
+- [ ] **A fonte de dados Loki responde.** Em *Connections → Data sources →
+  Loki → Test* (ou *Explore* com a fonte Loki), o teste dá verde e
+  `{projeto="traefik"}` devolve linhas. Se der erro de conexão, confira a
+  3100 no `authorized_keys` (`permitopen="127.0.0.1:3100"`) e
+  `docker compose logs tunel`.
 - [ ] **A chave do `metricas` recusa shell.** `ssh -i chaves/id_tunel -o
   IdentitiesOnly=yes metricas@IP_DA_VPS` fecha na hora (ou "This account is
   currently not available.").
@@ -316,13 +336,16 @@ testes/smoke.sh
 Sobe a pilha com sites falsos (um no ar, um com certificado não confiado, um
 redirecionamento, um 500 e um que não existe) e um túnel falso (o serviço
 `tunel` vira um nginx com `/metrics` do Traefik e do node exporter, sem SSH;
-inclui um certificado vencendo em 10 dias), confere pela API do
+inclui um certificado vencendo em 10 dias, e a `tunel:3100` repassa para um
+Loki de verdade, o `loki-falso`, onde o smoke injeta linhas de exemplo), confere pela API do
 Prometheus que o alvo no ar dá `probe_success` 1 e os demais 0, que os jobs
 `traefik` e `node` estão `up`, que o túnel não publica portas, que a
 retenção é de 90 dias e que o Prometheus **não** responde no IP não-loopback
 do PC; no Grafana, que está saudável, exige a senha, só escuta em
-`127.0.0.1`, tem a fonte de dados e os três painéis e que os painéis
-principais mostram dados (consultas feitas pelo próprio Grafana); nos
+`127.0.0.1`, tem as fontes de dados Prometheus e Loki e os três painéis, que
+os painéis principais mostram dados e que as consultas ao Loki feitas pelo
+próprio Grafana devolvem as linhas injetadas, filtradas por site (e que,
+com o Loki parado, o resto da pilha continua de pé); nos
 alertas, que as regras existem pela API, que o contact point e a política
 estão certos, que o certificado de 10 dias dispara e que a regra de 5xx
 entra em contagem para o serviço de tráfego alto mas não para o de tráfego

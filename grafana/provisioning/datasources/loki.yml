@@ -1,0 +1,17 @@
+# Fonte de dados provisionada: o Loki da VPS, alcançado pelo túnel SSH
+# (tunel:3100 -> 127.0.0.1:3100 da VPS). O uid é fixo de propósito: o painel
+# Logs o referencia. O Prometheus segue como fonte padrão (prometheus.yml).
+# Com o túnel ou o Loki fora, só esta fonte falha ("Test" vermelho); o resto
+# do Grafana e do Prometheus não depende dela.
+apiVersion: 1
+datasources:
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://tunel:3100
+    isDefault: false
+    editable: false
+    jsonData:
+      # Teto de linhas por consulta no Explore e nos painéis.
+      maxLines: 1000

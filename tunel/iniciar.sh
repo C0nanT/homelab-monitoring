@@ -1,11 +1,12 @@
 #!/bin/sh
 # Ponto de entrada do container "tunel": abre e mantém o túnel SSH até a VPS.
 #
-# Encaminha, na rede interna da pilha (tunel:8082 e tunel:9100), as portas que
-# a VPS publica só no loopback dela:
+# Encaminha, na rede interna da pilha (tunel:8082, tunel:9100 e tunel:3100), as
+# portas que a VPS publica só no loopback dela:
 #   127.0.0.1:8082  métricas do Traefik
 #   127.0.0.1:9100  node exporter
-# O usuário da VPS (metricas) só pode abrir esses dois encaminhamentos: veja
+#   127.0.0.1:3100  Loki (logs; o Grafana consulta por aqui)
+# O usuário da VPS (metricas) só pode abrir esses três encaminhamentos: veja
 # "Monitoramento a partir de outra máquina" no README do traefik-default.
 #
 # Variáveis (do .env, via docker-compose.yml):
@@ -38,7 +39,7 @@ chmod 600 /tmp/id_tunel
 # GATETIME=0: tenta de novo mesmo se a 1ª conexão falhar (PC sem rede ao ligar).
 export AUTOSSH_GATETIME=0
 
-echo "tunel: conectando em $USUARIO@$TUNEL_HOST:$PORTA (encaminha 8082 e 9100)"
+echo "tunel: conectando em $USUARIO@$TUNEL_HOST:$PORTA (encaminha 8082, 9100 e 3100)"
 # - ExitOnForwardFailure: se um encaminhamento falhar, o ssh sai (e o autossh
 #   reconecta) em vez de ficar de pé sem métricas.
 # - ServerAliveInterval/CountMax: ~45s sem resposta = conexão morta (suspensão,
@@ -47,7 +48,8 @@ echo "tunel: conectando em $USUARIO@$TUNEL_HOST:$PORTA (encaminha 8082 e 9100)"
 #   com a VPS conhecida; chave do servidor diferente = recusa (nada de TOFU).
 # - BatchMode: nunca pede senha nem confirmação (não há terminal).
 # - 0.0.0.0 no lado do container: o Prometheus chega por tunel:8082/9100 pela
-#   rede interna da pilha. Nenhuma porta é publicada no PC (sem "ports").
+#   rede interna da pilha (o Grafana chega no Loki por tunel:3100). Nenhuma
+#   porta é publicada no PC (sem "ports").
 exec autossh -M 0 -N \
   -o ExitOnForwardFailure=yes \
   -o ServerAliveInterval=15 \
@@ -62,4 +64,5 @@ exec autossh -M 0 -N \
   -p "$PORTA" \
   -L 0.0.0.0:8082:127.0.0.1:8082 \
   -L 0.0.0.0:9100:127.0.0.1:9100 \
+  -L 0.0.0.0:3100:127.0.0.1:3100 \
   "$USUARIO@$TUNEL_HOST"
