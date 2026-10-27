@@ -16,7 +16,7 @@ Status: ready-for-agent
 - [x] Na VPS: `git pull` em `/opt/traefik` e `docker compose up -d`; node exporter de pé; `curl` em `127.0.0.1:9100` responde e a porta não aparece de fora
 - [x] Usuário `metricas` criado conforme o README; a chave recusa shell e recusa encaminhar para outra porta (ex.: 8080)
 - [x] No PC: pilha de pé; jobs `traefik`, `node` e `sites` `up`; painéis com dados reais
-- [ ] Túnel volta sozinho depois de suspender o PC e de reiniciar o container do Traefik
+- [x] Túnel volta sozinho depois de suspender o PC e de reiniciar o container do Traefik
 - [ ] Alerta de teste chega no Telegram
 - [x] ~~UptimeRobot com monitores HTTPS para `conantorres.dev` e `bbcontainermodular.com`, aviso configurado e verde; passo a passo no README do `homelab-monitoring`~~ (descartado em 2026-10-27: pilha 100% local)
 - [x] Checklist manual escrito no README do `homelab-monitoring`
