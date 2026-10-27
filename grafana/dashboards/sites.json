@@ -431,5 +431,15 @@
         }
       ]
     }
+  ],
+  "links": [
+    {
+      "title": "Logs",
+      "type": "link",
+      "icon": "doc",
+      "url": "/d/homelab-logs/logs",
+      "targetBlank": false,
+      "tooltip": "Logs dos sites no Loki"
+    }
   ]
 }

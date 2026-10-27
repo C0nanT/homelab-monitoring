@@ -166,6 +166,9 @@ Tudo é provisionado por arquivo e versionado: recriar o Grafana do zero
 - **Sites** (`sites.json`, próprio): no ar, status HTTP, latência total e do
   TLS por site, e os dias até vencer o certificado **lado a lado**: o que o
   blackbox recebeu de fora e o que o Traefik tem guardado.
+- **Logs** (`logs.json`, próprio): logs da aplicação e log de acesso do
+  Traefik por site, linhas de erro e respostas por classe de status (veja
+  "Logs"). Sites e Traefik têm um link para ele no topo.
 - Os painéis são editáveis na tela só para olhar; as mudanças **não** são
   salvas (vêm dos arquivos).
 
@@ -182,6 +185,39 @@ revisão, refaça esses ajustes, troque o JSON, rode `testes/smoke.sh` (ele
 confere que os painéis principais têm dados) e suba. Para criar ou ajustar um
 painel: edite na tela, *Export → Save to file* e salve o JSON em
 `grafana/dashboards/`.
+
+## Logs
+
+Os logs dos sites ficam no Loki da VPS (30 dias, coleta 24/7 mesmo com o PC
+desligado) e chegam ao Grafana pelo túnel (`tunel:3100`, fonte de dados `loki`).
+O painel **Logs** (`grafana/dashboards/logs.json`, uid `homelab-logs`) tem:
+
+- **Site**: `conan-torres`, `bbcontainer` ou `traefik` (a borda; sem log de
+  acesso por router). Escolha o período no seletor de tempo do Grafana.
+- **Buscar texto**: filtra as duas listas de logs (ex.: `Error`, um caminho,
+  um IP). Deixe vazio para ver tudo.
+- **Linhas de erro**: linhas por intervalo vindas do stderr ou com `error`
+  no texto.
+- **Respostas por classe de status**: 2xx, 3xx, 4xx e 5xx do site, contadas no
+  log de acesso (útil para cruzar com o alerta de 5xx).
+- **Logs da aplicação** e **Log de acesso** (status, método, caminho,
+  `ClientHost` e duração em ns, extraídos com `| json`).
+
+Com o túnel fora, só este painel mostra erro de conexão; o resto do Grafana
+segue normal. Para consultas livres use *Explore* (fonte `loki`). Rótulos:
+`projeto`, `servico`, `stream`; no Traefik também `tipo` (`acesso` | `traefik`)
+e, no acesso, `router` (ex.: `conan-torres@docker`). Exemplos de LogQL:
+
+```logql
+{projeto="conan-torres"} |= "Error"
+{projeto="traefik", tipo="acesso", router="bbcontainer@docker"} | json | DownstreamStatus >= 500
+{tipo="acesso"} | json | ClientHost = "203.0.113.7"
+sum by (router) (count_over_time({tipo="acesso"} [5m]))
+{projeto="traefik", tipo="traefik"} |= "acme"
+```
+
+Um site novo na borda entra no seletor `site` editando a variável no JSON
+(`query` da variável `site` em `logs.json`).
 
 ## Alertas no Telegram
 
