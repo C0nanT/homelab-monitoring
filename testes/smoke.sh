@@ -8,9 +8,12 @@
 # Prometheus e com curl, e derruba tudo no final, mesmo se algo falhar
 # (down -v só no projeto "homelab-smoke"; seus dados reais não são tocados).
 #
-# ATENÇÃO: usa 127.0.0.1:${PORTA_PROMETHEUS} (9090) e 127.0.0.1:${PORTA_GRAFANA}
-# (3000) do host. Os alertas usam token falso e api.telegram.org -> 127.0.0.1. Não rode com a
-# pilha real de pé (ou outra coisa nessa porta). Leva ~1 minuto.
+# Convive com a pilha real: usa 127.0.0.1:${PORTA_PROMETHEUS} (19090) e
+# 127.0.0.1:${PORTA_GRAFANA} (13000) do host, longe das portas 9090 e 3000 da
+# pilha real, que pode ficar de pé (não pare nada). Antes de subir, confere
+# que as duas estão livres; se uma estiver ocupada, sai dizendo qual e como
+# trocar (PORTA_PROMETHEUS=... PORTA_GRAFANA=... testes/smoke.sh). Os alertas
+# usam token falso e api.telegram.org -> 127.0.0.1. Leva ~1 minuto.
 #
 # Uso:   testes/smoke.sh
 # Saída: código 0 se todas as verificações passarem; diferente de zero se
@@ -35,14 +38,18 @@ cd "$RAIZ" || exit 1
 # shellcheck source=testes/lib.sh
 . "$RAIZ/testes/lib.sh"
 
+# Portas escolhidas pelo ambiente valem mais que as do smoke.env.
+porta_prometheus_ambiente="${PORTA_PROMETHEUS:-}"
+porta_grafana_ambiente="${PORTA_GRAFANA:-}"
+
 # Variáveis do teste (também lidas pelos composes via testes/smoke.env).
 set -a
 # shellcheck source=testes/smoke.env
 . "$RAIZ/testes/smoke.env"
 set +a
-export PORTA_PROMETHEUS="${PORTA_PROMETHEUS:-9090}"
+export PORTA_PROMETHEUS="${porta_prometheus_ambiente:-${PORTA_PROMETHEUS:-19090}}"
 PROM_URL="http://127.0.0.1:$PORTA_PROMETHEUS"
-export PORTA_GRAFANA="${PORTA_GRAFANA:-3000}"
+export PORTA_GRAFANA="${porta_grafana_ambiente:-${PORTA_GRAFANA:-13000}}"
 export GRAFANA_URL="http://127.0.0.1:$PORTA_GRAFANA" # o grafana-api.sh também lê
 
 # Pasta temporária (certificados falsos, configs geradas). Fora do repositório.
@@ -105,6 +112,25 @@ if ! grep -q 'ca_file' "$SMOKE_TMP/blackbox.yml"; then
   echo "Não consegui inserir a CA do smoke em blackbox.yml (formato mudou?)." >&2
   exit 1
 fi
+
+secao "Conferindo as portas"
+
+# Só o loopback do host: é onde o smoke publica. Qualquer coisa escutando
+# ali (a pilha real, outro smoke) faria o compose falhar ou, pior, misturar.
+porta_ocupada() { # porta
+  (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null
+}
+for par in PORTA_PROMETHEUS:Prometheus PORTA_GRAFANA:Grafana; do
+  var="${par%%:*}"
+  if porta_ocupada "${!var}"; then
+    echo "A porta ${!var} (${par##*:}) já está ocupada em 127.0.0.1." >&2
+    echo "Escolha outra: $var=<porta livre> testes/smoke.sh" >&2
+    # Nada subiu: sem o down -v, que derrubaria outro smoke dono da porta.
+    trap - EXIT
+    rm -rf "$SMOKE_TMP"
+    exit 1
+  fi
+done
 
 secao "Subindo a pilha"
 

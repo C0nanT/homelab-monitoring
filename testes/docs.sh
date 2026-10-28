@@ -157,4 +157,12 @@ tem README.md '### Tirar uma regra' "README: seção para tirar uma regra dos al
 tem README.md 'não a apaga do Grafana' "README: tirar a regra do arquivo não a apaga do Grafana"
 tem README.md 'deleteRules:' "README: bloco deleteRules de exemplo"
 tem README.md 'Depois do restart, tire o `deleteRules` do arquivo' "README: remover o deleteRules depois de aplicar"
+# Smoke em portas próprias: convive com a pilha real.
+tem README.md '127.0.0.1:19090' "README: smoke usa a porta 19090 do Prometheus"
+tem README.md '127.0.0.1:13000' "README: smoke usa a porta 13000 do Grafana"
+tem README.md 'com a pilha real de pé' "README: smoke convive com a pilha real"
+nao_tem README.md 'Pare a pilha real' "README: atualização de imagens não manda parar a pilha real"
+nao_tem README.md 'não rode com a pilha' "README: smoke não proíbe rodar com a pilha real"
+nao_tem testes/smoke.sh 'Não rode com a' "smoke.sh: aviso do topo não manda parar a pilha real"
+tem testes/smoke.sh 'PORTA_PROMETHEUS' "smoke.sh: aviso do topo diz como trocar as portas"
 exit $((falhas > 0))
