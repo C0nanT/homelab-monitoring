@@ -16,6 +16,8 @@
 # usam token falso e api.telegram.org -> 127.0.0.1. Leva ~1 minuto.
 #
 # Uso:   testes/smoke.sh
+#        VAR=valor testes/smoke.sh   (o ambiente tem prioridade sobre o smoke.env,
+#        que só dá os valores padrão; vale para qualquer variável dele)
 # Saída: código 0 se todas as verificações passarem; diferente de zero se
 #        alguma falhar ou se a pilha não subir. Se terminar com erro antes de
 #        verificar (preparando / subindo a pilha), a última linha é ABORTOU
@@ -40,18 +42,26 @@ cd "$RAIZ" || exit 1
 # shellcheck source=testes/lib.sh
 . "$RAIZ/testes/lib.sh"
 
-# Portas escolhidas pelo ambiente valem mais que as do smoke.env.
-porta_prometheus_ambiente="${PORTA_PROMETHEUS:-}"
-porta_grafana_ambiente="${PORTA_GRAFANA:-}"
-
-# Variáveis do teste (também lidas pelos composes via testes/smoke.env).
-set -a
-# shellcheck source=testes/smoke.env
-. "$RAIZ/testes/smoke.env"
-set +a
-export PORTA_PROMETHEUS="${porta_prometheus_ambiente:-${PORTA_PROMETHEUS:-19090}}"
+# Variáveis do teste (também lidas pelos composes via testes/smoke.env). O
+# smoke.env só dá os padrões: qualquer variável já definida no ambiente vale
+# mais (ex.: PORTA_PROMETHEUS=19191 testes/smoke.sh). O compose faz o mesmo com
+# o --env-file, então o valor do ambiente também chega aos contêineres.
+carregar_smoke_env() {
+  local nome
+  local -A do_ambiente=()
+  while IFS= read -r nome; do
+    [ -z "${!nome+x}" ] || do_ambiente[$nome]="${!nome}"
+  done < <(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$RAIZ/testes/smoke.env" | tr -d =)
+  set -a
+  # shellcheck source=testes/smoke.env
+  . "$RAIZ/testes/smoke.env"
+  for nome in "${!do_ambiente[@]}"; do
+    export "$nome=${do_ambiente[$nome]}"
+  done
+  set +a
+}
+carregar_smoke_env
 PROM_URL="http://127.0.0.1:$PORTA_PROMETHEUS"
-export PORTA_GRAFANA="${porta_grafana_ambiente:-${PORTA_GRAFANA:-13000}}"
 export GRAFANA_URL="http://127.0.0.1:$PORTA_GRAFANA" # o grafana-api.sh também lê
 
 # Pasta temporária (certificados falsos, configs geradas). Fora do repositório.
