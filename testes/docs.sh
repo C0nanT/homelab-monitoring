@@ -165,4 +165,7 @@ nao_tem README.md 'Pare a pilha real' "README: atualização de imagens não man
 nao_tem README.md 'não rode com a pilha' "README: smoke não proíbe rodar com a pilha real"
 nao_tem testes/smoke.sh 'Não rode com a' "smoke.sh: aviso do topo não manda parar a pilha real"
 tem testes/smoke.sh 'PORTA_PROMETHEUS' "smoke.sh: aviso do topo diz como trocar as portas"
+# Smoke: o ambiente manda no smoke.env, que só dá os padrões.
+tem README.md 'o ambiente tem prioridade sobre o `testes/smoke.env`' "README: ambiente tem prioridade sobre o smoke.env"
+tem testes/smoke.sh 'o ambiente tem prioridade sobre o smoke.env' "smoke.sh: cabeçalho diz que o ambiente tem prioridade"
 exit $((falhas > 0))
