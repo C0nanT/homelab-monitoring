@@ -97,6 +97,17 @@ for args in "GET /api/env" "GET /falha"; do
   ! grep -q "$SEGREDO" "$TMP/out" "$TMP/err"
   confere "senha fora da saída ($args)" 0 $?
 done
+# 8. Ruído do curl no stderr não contamina o JSON de uma resposta 2xx
+mkdir "$TMP/shim"
+CURL_REAL="$(command -v curl)"
+printf '#!/bin/sh\necho "curl: (aviso) ruido no stderr" >&2\nexec "%s" "$@"\n' "$CURL_REAL" >"$TMP/shim/curl"
+chmod +x "$TMP/shim/curl"
+PATH="$TMP/shim:$PATH" GRAFANA_URL="http://127.0.0.1:$PORTA" GRAFANA_SENHA_ADMIN="$SEGREDO" "$S" GET /api/ruido >"$TMP/out" 2>"$TMP/err"; cod=$?
+confere "ruído do curl: sai com 0" 0 "$cod"
+confere "ruído do curl: stdout é só o JSON" GET "$(jq -r .metodo "$TMP/out" 2>/dev/null)"
+! grep -q 'ruido' "$TMP/out"
+confere "ruído do curl: nada do stderr no stdout" 0 $?
+
 # senha ausente: erro claro, sem chamar a API
 rm "$TMP/repo/.env"
 env -u GRAFANA_SENHA_ADMIN "$S" GET /api/x >/dev/null 2>"$TMP/err"; cod=$?

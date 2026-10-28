@@ -54,7 +54,8 @@ fi
 senha_cfg="${senha//\\/\\\\}"
 senha_cfg="${senha_cfg//\"/\\\"}"
 cfg="$(mktemp)" || exit 1
-trap 'rm -f "$cfg"' EXIT
+erro_curl="$(mktemp)" || exit 1 # stderr do curl, separado do corpo (modo 600)
+trap 'rm -f "$cfg" "$erro_curl"' EXIT
 printf 'user = "admin:%s"\n' "$senha_cfg" >"$cfg"
 
 args=(-sS --max-time 20 -X "$metodo" -K "$cfg"
@@ -66,8 +67,8 @@ fi
 # escondida TEXTO -> TEXTO sem a senha (defesa extra).
 escondida() { printf '%s' "${1//"$senha"/***}"; }
 
-if ! resposta="$(curl "${args[@]}" "$url$caminho" <<<"$corpo" 2>&1)"; then
-  echo "grafana-api: falha ao chamar $metodo $caminho: $(escondida "$resposta")" >&2
+if ! resposta="$(curl "${args[@]}" "$url$caminho" <<<"$corpo" 2>"$erro_curl")"; then
+  echo "grafana-api: falha ao chamar $metodo $caminho: $(escondida "$(cat "$erro_curl")")" >&2
   exit 1
 fi
 codigo="${resposta##*$'\n'}"
