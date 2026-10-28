@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Carregado pelo testes/smoke.sh; usa as funções de testes/lib.sh e de
-# testes/verificacoes/04-grafana.sh (grafana_api, grafana_loki,
+# testes/verificacoes/04-grafana.sh (grafana-api.sh, grafana_loki,
 # fonte_saudavel).
 # Loki atrás do túnel falso: o smoke injeta linhas de exemplo pela API de push
 # (com os rótulos que a coleta da borda produz de verdade) e confere, pelo
@@ -59,7 +59,7 @@ loki_empurrar '{"projeto":"traefik","servico":"socket-proxy","stream":"stderr"}'
 loki_empurrar '{"job":"atualizar-apps"}' '2026-10-28 14:30:01 atualizado conan-torres'
 loki_empurrar '{"job":"atualizar-apps"}' '2026-10-28 14:30:07 ERRO bbcontainer: smoke-deploy-erro'
 
-DS_LOKI="$(grafana_api /api/datasources || echo '[]')"
+DS_LOKI="$("$RAIZ/grafana-api.sh" GET /api/datasources || echo '[]')"
 afirmar "fonte de dados Loki (uid loki) existe" \
   test "$(jq -r '[.[]|select(.uid=="loki" and .type=="loki")]|length' <<<"$DS_LOKI")" = 1
 afirmar "fonte de dados Loki aponta para o túnel (http://tunel:3100)" \

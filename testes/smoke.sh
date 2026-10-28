@@ -43,7 +43,7 @@ set +a
 export PORTA_PROMETHEUS="${PORTA_PROMETHEUS:-9090}"
 PROM_URL="http://127.0.0.1:$PORTA_PROMETHEUS"
 export PORTA_GRAFANA="${PORTA_GRAFANA:-3000}"
-GRAFANA_URL="http://127.0.0.1:$PORTA_GRAFANA"
+export GRAFANA_URL="http://127.0.0.1:$PORTA_GRAFANA" # o grafana-api.sh também lê
 
 # Pasta temporária (certificados falsos, configs geradas). Fora do repositório.
 SMOKE_TMP="$(mktemp -d)" || exit 1

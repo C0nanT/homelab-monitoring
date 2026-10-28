@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Carregado pelo testes/smoke.sh; usa as funções de testes/lib.sh e
-# grafana_api (definida em 04-grafana.sh).
+# o grafana-api.sh (na raiz do repositório).
 # Alertas: regras, contact point e política provisionados; com a série falsa
 # do túnel (gerar-metricas.sh), o certificado de 10 dias dispara, o 5xx do
 # serviço de tráfego alto entra em disparo e o de tráfego quase zero NÃO.
@@ -21,7 +21,7 @@ TITULO_CRON="Cron de deploy parado"
 # Guarda a última resposta em REGRAS_JSON (usada no resto do arquivo).
 REGRAS_JSON=""
 regras_provisionadas() {
-  REGRAS_JSON="$(grafana_api /api/v1/provisioning/alert-rules)" &&
+  REGRAS_JSON="$("$RAIZ/grafana-api.sh" GET /api/v1/provisioning/alert-rules)" &&
     jq -e 'length >= 8' <<<"$REGRAS_JSON" >/dev/null
 }
 if esperar_ate 60 regras_provisionadas; then
@@ -70,7 +70,7 @@ afirmar "deploy falhou: mensagem cita o app" \
 afirmar "nenhuma regra ficou com variável \$LIMITE_ sem trocar" \
   bash -c '! grep -rq "LIMITE_" "$1"' _ "$RAIZ/grafana/provisioning/alerting"
 
-CP_JSON="$(grafana_api /api/v1/provisioning/contact-points || echo '[]')"
+CP_JSON="$("$RAIZ/grafana-api.sh" GET /api/v1/provisioning/contact-points || echo '[]')"
 afirmar "contact point 'telegram' do tipo telegram existe" \
   test "$(jq -r '[.[]|select(.name=="telegram" and .type=="telegram")]|length' <<<"$CP_JSON")" = 1
 afirmar "aviso de resolução ligado (disableResolveMessage false)" \
@@ -78,9 +78,9 @@ afirmar "aviso de resolução ligado (disableResolveMessage false)" \
 afirmar "contact point usa o texto de mensagem.yml (telegram.mensagem, HTML)" \
   test "$(jq -r '[.[]|select(.name=="telegram")|.settings|"\(.message)|\(.parse_mode)"]|first' <<<"$CP_JSON")" = '{{ template "telegram.mensagem" . }}|HTML'
 afirmar "template 'telegram' provisionado" \
-  test "$(grafana_api /api/v1/provisioning/templates | jq -r '[.[]|select(.name=="telegram")]|length')" = 1
+  test "$("$RAIZ/grafana-api.sh" GET /api/v1/provisioning/templates | jq -r '[.[]|select(.name=="telegram")]|length')" = 1
 afirmar "política padrão envia para o contact point telegram" \
-  test "$(grafana_api /api/v1/provisioning/policies | jq -r '.receiver')" = telegram
+  test "$("$RAIZ/grafana-api.sh" GET /api/v1/provisioning/policies | jq -r '.receiver')" = telegram
 afirmar "token do Telegram não aparece em claro na API" \
   bash -c '! printf "%s" "$1" | grep -q "$2"' _ "$CP_JSON" "$TELEGRAM_BOT_TOKEN"
 afirmar "api.telegram.org aponta para 127.0.0.1 no Grafana do smoke (nada sai)" \
@@ -91,7 +91,7 @@ secao "Alertas: disparo com a série falsa do túnel"
 # estado_alertas TITULO -> uma linha por instância EM ALERTA (pendente ou
 # disparando; ignora as normais): "estado rótulo-de-identificação".
 estado_alertas() {
-  grafana_api /api/prometheus/grafana/api/v1/rules |
+  "$RAIZ/grafana-api.sh" GET /api/prometheus/grafana/api/v1/rules |
     jq -r --arg t "$1" '[.data.groups[].rules[]|select(.name==$t)][0].alerts // []
       | .[] | select(.state|test("^(Alerting|Pending|firing|pending)")) | "\(.state) \(.labels.cn // .labels.service // .labels.instance // .labels.job // "?")"'
 }
