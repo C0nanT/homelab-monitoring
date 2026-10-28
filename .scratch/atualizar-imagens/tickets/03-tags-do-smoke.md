@@ -14,10 +14,10 @@
 
 Status: ready-for-agent
 
-- [ ] Decidido, com base na documentação do Dependabot sobre nomes e pastas de compose reconhecidos, entre a primeira e a segunda opção; a decisão e o motivo ficam registrados no README
+- [x] Decidido, com base na documentação do Dependabot sobre nomes e pastas de compose reconhecidos, entre a primeira e a segunda opção; a decisão e o motivo ficam registrados no README
 - [ ] Primeira opção: nginx (com o sufixo `-alpine`) e Loki falso como `image:` literais num compose de teste, a configuração do Dependabot cobre esse diretório, e o `docs.sh` confere essa cobertura
-- [ ] Segunda opção: `docs.sh` falha quando a tag do Loki falso difere da versão do Loki anotada no README
-- [ ] A regra "cada tag aparece em um único arquivo" do README continua verdadeira (atualizada se as tags mudarem de lugar)
-- [ ] README do `traefik-default`: o roteiro de versão manda atualizar o Loki falso do homelab junto ao aprovar um PR do Loki
-- [ ] O smoke da pilha do PC continua passando com as mesmas imagens de antes
-- [ ] `testes/docs.sh` dos dois repositórios passa
+- [x] Segunda opção: `docs.sh` falha quando a tag do Loki falso difere da versão do Loki anotada no README
+- [x] A regra "cada tag aparece em um único arquivo" do README continua verdadeira (atualizada se as tags mudarem de lugar)
+- [x] README do `traefik-default`: o roteiro de versão manda atualizar o Loki falso do homelab junto ao aprovar um PR do Loki
+- [x] O smoke da pilha do PC continua passando com as mesmas imagens de antes
+- [x] `testes/docs.sh` dos dois repositórios passa

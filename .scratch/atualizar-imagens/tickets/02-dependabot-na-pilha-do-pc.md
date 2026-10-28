@@ -13,12 +13,12 @@
 
 Status: ready-for-agent
 
-- [ ] Conferido na documentação atual do Dependabot que o `cooldown` vale para os ecossistemas `docker` e `docker-compose`
-- [ ] Configuração do Dependabot com comentários em pt-BR: `docker-compose` no compose principal e `docker` no diretório do Dockerfile do túnel, agenda mensal, um grupo por ecossistema, `cooldown` de 14 dias, `open-pull-requests-limit` acima de 0
-- [ ] Nenhum workflow ou regra de auto-merge
-- [ ] YAML lido sem erro por um parser (Python ou `yq` via Docker)
-- [ ] README: a seção "Fixar e atualizar as versões" começa pelo PR do Dependabot (ler as notas, parar a pilha real, rodar o smoke, `docker compose build tunel`, aprovar, `pull` + `build` + `up -d`); o roteiro à mão continua documentado
+- [x] Conferido na documentação atual do Dependabot que o `cooldown` vale para os ecossistemas `docker` e `docker-compose`
+- [x] Configuração do Dependabot com comentários em pt-BR: `docker-compose` no compose principal e `docker` no diretório do Dockerfile do túnel, agenda mensal, um grupo por ecossistema, `cooldown` de 14 dias, `open-pull-requests-limit` acima de 0
+- [x] Nenhum workflow ou regra de auto-merge
+- [x] YAML lido sem erro por um parser (Python ou `yq` via Docker)
+- [x] README: a seção "Fixar e atualizar as versões" começa pelo PR do Dependabot (ler as notas, parar a pilha real, rodar o smoke, `docker compose build tunel`, aprovar, `pull` + `build` + `up -d`); o roteiro à mão continua documentado
 - [ ] README: nota de que o PR do Loki chega nos dois repositórios e os dois são aprovados juntos
-- [ ] README: onde conferir se o Dependabot leu a configuração (*Insights → Dependency graph → Dependabot*), como passo do checklist manual depois do merge
-- [ ] `testes/docs.sh` confere: a configuração existe, cobre `docker-compose` e `docker` (com o diretório do túnel), e o README tem o roteiro de revisão e a nota do Loki
-- [ ] `testes/docs.sh` e `testes/smoke.sh` passam
+- [x] README: onde conferir se o Dependabot leu a configuração (*Insights → Dependency graph → Dependabot*), como passo do checklist manual depois do merge
+- [x] `testes/docs.sh` confere: a configuração existe, cobre `docker-compose` e `docker` (com o diretório do túnel), e o README tem o roteiro de revisão e a nota do Loki
+- [x] `testes/docs.sh` e `testes/smoke.sh` passam
