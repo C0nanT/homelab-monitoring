@@ -141,4 +141,7 @@ tem README.md 'não lê o `.env`' "README: motivo de nginx e Loki falso ficarem 
 tem README.md 'confere a tag do Loki falso' "README: docs.sh confere o Loki falso contra a nota da borda"
 nao_tem README.md 'O PR do Loki chega nos dois repositórios' "README não promete PR do Loki neste repositório"
 if [ -n "$(ls .github/workflows 2>/dev/null)" ]; then echo "FALHA .github/workflows não deve existir (sem auto-merge)"; falhas=$((falhas + 1)); else echo "ok    sem workflow de auto-merge"; fi
+# Checklist da falha forçada: a referência fica na seção dos alertas e aponta o checklist da borda.
+tem README.md '../traefik-default#checklist-manual-da-falha-forçada' "README: aponta o checklist da falha forçada na borda"
+tem README.md 'Para ver os dois alertas de deploy dispararem de verdade' "README: referência ao checklist da falha forçada, junto dos alertas"
 exit $((falhas > 0))

@@ -268,6 +268,11 @@ O limite de 30 min do cron parado é `deploy_parado_min` no bloco `limites` de
 `regras.yml`. Se a coleta da VPS toda parar, "Coleta da VPS parada" e "Cron de
 deploy parado" podem disparar juntos (aceito).
 
+Para ver os dois alertas de deploy dispararem de verdade (forçar uma falha na
+VPS, receber no Telegram e vê-lo resolver), siga o
+[checklist da falha forçada](../traefik-default#checklist-manual-da-falha-forçada)
+no README do `traefik-default`.
+
 Cada mensagem diz a gravidade, qual alerta, qual certificado, site ou serviço
 com o valor atual, e desde quando (horário de Brasília):
 
