@@ -708,7 +708,7 @@
       "id": 12,
       "type": "stat",
       "title": "Última rodada do cron",
-      "description": "Quando o cron da VPS terminou a última rodada (série deploy_rodada_timestamp_seconds). Sem rodada há mais de 30 min dispara o alerta 'Cron de deploy parado'.",
+      "description": "Quando o cron da VPS terminou a última rodada (série deploy_rodada_timestamp_seconds). Sem rodada além do limite deploy_parado_min dispara o alerta 'Cron de deploy parado'.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

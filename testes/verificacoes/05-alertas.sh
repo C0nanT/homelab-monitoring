@@ -50,6 +50,9 @@ afirmar "cron parado: sem espera (for 0s)" \
 limite_regra() { # TITULO REFID -> limite numérico do nó threshold (veja o bloco "limites" em regras.yml)
   jq -r --arg t "$1" --arg r "$2" '.[]|select(.title==$t)|.data[]|select(.refId==$r)|.model.conditions[0].evaluator.params[0]' <<<"$REGRAS_JSON"
 }
+expr_regra() { # TITULO -> consulta (expr) do nó A da regra
+  jq -r --arg t "$1" '.[]|select(.title==$t)|.data[]|select(.refId=="A")|.model.expr' <<<"$REGRAS_JSON"
+}
 afirmar "certificado (Traefik): limite de 20 dias" test "$(limite_regra "$TITULO_CERT_TRAEFIK" C)" = 20
 afirmar "certificado (site): limite de 20 dias" test "$(limite_regra "$TITULO_CERT_BLACKBOX" C)" = 20
 afirmar "5xx: limite de 5%" test "$(limite_regra "$TITULO_5XX" E)" = 5
@@ -58,8 +61,8 @@ afirmar "disco: limite de 85%" test "$(limite_regra "$TITULO_DISCO" C)" = 85
 afirmar "deploy falhou: dispara acima de 0 (deploy_falhou == 1)" test "$(limite_regra "$TITULO_DEPLOY" C)" = 0
 afirmar "cron parado: limite de 30 minutos" test "$(limite_regra "$TITULO_CRON" C)" = 30
 afirmar "deploy falhou: consulta lê a série deploy_falhou" \
-  test "$(jq -r --arg t "$TITULO_DEPLOY" '.[]|select(.title==$t)|.data[]|select(.refId=="A")|.model.expr' <<<"$REGRAS_JSON")" = 'deploy_falhou{job="node"}'
-EXPR_CRON="$(jq -r --arg t "$TITULO_CRON" '.[]|select(.title==$t)|.data[]|select(.refId=="A")|.model.expr' <<<"$REGRAS_JSON")"
+  test "$(expr_regra "$TITULO_DEPLOY")" = 'deploy_falhou{job="node"}'
+EXPR_CRON="$(expr_regra "$TITULO_CRON")"
 afirmar "cron parado: consulta usa a hora da última rodada e cobre a série ausente (absent)" \
   bash -c 'grep -q deploy_rodada_timestamp_seconds <<<"$1" && grep -q "absent(" <<<"$1"' _ "$EXPR_CRON"
 afirmar "deploy falhou: mensagem cita o app" \

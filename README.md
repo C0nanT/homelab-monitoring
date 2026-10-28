@@ -262,9 +262,9 @@ das mensagens).
 | Disco da VPS cheio | `/` acima de **85%** | 0 |
 | Coleta da VPS parada | job `traefik` ou `node` `down` | 5 min |
 | Deploy falhou (VPS) | `deploy_falhou` = 1 em algum site (o `app` vai na mensagem); resolve quando a rodada seguinte der certo | 0 |
-| Cron de deploy parado | última rodada do cron (`deploy_rodada_timestamp_seconds`) há mais de **30 min**, ou a série sumiu | 0 |
+| Cron de deploy parado | última rodada do cron (`deploy_rodada_timestamp_seconds`) há mais que o limite `deploy_parado_min`, ou a série sumiu | 0 |
 
-O limite de 30 min do cron parado é `deploy_parado_min` no bloco `limites` de
+O limite do cron parado é `deploy_parado_min` (padrão 30 min), no bloco `limites` de
 `regras.yml`. Se a coleta da VPS toda parar, "Coleta da VPS parada" e "Cron de
 deploy parado" podem disparar juntos (aceito).
 
