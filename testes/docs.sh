@@ -101,5 +101,17 @@ tem README.md 'PR do Dependabot' "README: roteiro começa pelo PR do Dependabot"
 tem README.md 'docker compose build tunel' "README: PR do Alpine passa pelo build do túnel"
 tem README.md 'PR do Loki' "README: PR do Loki chega nos dois repositórios"
 tem README.md 'Dependency graph' "README: onde conferir se o Dependabot leu a configuração"
+# Tags que só o smoke usa (Dependabot não as lê): o Loki falso acompanha a borda.
+loki_readme=$(grep -oE 'Loki da borda: `grafana/loki:[0-9][0-9.]*`' README.md | head -1 | grep -oE '[0-9][0-9.]*`$' | tr -d '`')
+loki_smoke=$(grep -E '^IMAGEM_LOKI=' testes/smoke.env | head -1 | sed -E 's/.*grafana\/loki://')
+if [ -n "$loki_readme" ] && [ "$loki_readme" = "$loki_smoke" ]; then
+  echo "ok    Loki falso do smoke ($loki_smoke) igual ao Loki da borda anotado no README"
+else
+  echo "FALHA Loki falso do smoke (${loki_smoke:-?}) difere do Loki da borda anotado no README (${loki_readme:-sem nota})"
+  falhas=$((falhas + 1))
+fi
+tem README.md 'não lê o `.env`' "README: motivo de nginx e Loki falso ficarem fora do Dependabot"
+tem README.md 'confere a tag do Loki falso' "README: docs.sh confere o Loki falso contra a nota da borda"
+nao_tem README.md 'O PR do Loki chega nos dois repositórios' "README não promete PR do Loki neste repositório"
 if [ -n "$(ls .github/workflows 2>/dev/null)" ]; then echo "FALHA .github/workflows não deve existir (sem auto-merge)"; falhas=$((falhas + 1)); else echo "ok    sem workflow de auto-merge"; fi
 exit $((falhas > 0))

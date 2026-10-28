@@ -427,7 +427,22 @@ aparece em um único arquivo:
   `prom/blackbox-exporter:vX.Y.Z` e `grafana/grafana:X.Y.Z`;
 - `tunel/Dockerfile`: `alpine:X.Y.Z` (o autossh e o ssh vêm dos pacotes
   dessa versão do Alpine);
-- `testes/smoke.env`: `nginx:X.Y.Z-alpine` (só dos sites falsos do smoke).
+- `testes/smoke.env`: `nginx:X.Y.Z-alpine` (só dos sites falsos do smoke) e
+  `grafana/loki:X.Y.Z` (o Loki falso, que repete a tag do Loki da borda).
+
+Referência da versão do Loki da borda (a única anotação dela neste
+repositório; o `docs.sh` compara com ela o `IMAGEM_LOKI` do smoke):
+
+> Loki da borda: `grafana/loki:3.7.8`
+
+As duas imagens só do smoke ficam em `testes/smoke.env` e **não** entram no
+PR do Dependabot, por decisão: o ecossistema `docker-compose` só lê arquivos
+cujo nome contém "compose" e não lê o `.env`, e o `${IMAGEM_*:?}` dos
+arquivos de `testes/compose/` fica invisível a ele. Torná-las literais
+exigiria renomear os arquivos e repetir o nginx em três lugares, e o
+resultado só se conferiria no GitHub depois do merge. Em troca, o nginx é só
+de teste e o `testes/docs.sh` confere a tag do Loki falso contra a nota
+acima: ele falha se as duas divergirem.
 
 ### Pelo PR do Dependabot
 
@@ -446,8 +461,9 @@ Alpine do `tunel/Dockerfile`. Nada é aplicado sozinho. Para cada PR:
    `docker compose up -d`; depois `docker compose ps && docker compose logs
    --tail 50`.
 
-O PR do Loki chega nos dois repositórios (`traefik-default` e este, pela tag
-do Loki falso do smoke): aprove os dois PR do Loki juntos.
+O PR do Loki chega só no `traefik-default`. Ao aprová-lo, atualize aqui, na
+mesma hora, o `IMAGEM_LOKI` do `testes/smoke.env` e a nota "Loki da borda"
+acima; o `testes/docs.sh` falha enquanto os dois não baterem.
 
 ### À mão
 
