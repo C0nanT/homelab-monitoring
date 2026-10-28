@@ -186,6 +186,23 @@ confere que os painéis principais têm dados) e suba. Para criar ou ajustar um
 painel: edite na tela, *Export → Save to file* e salve o JSON em
 `grafana/dashboards/`.
 
+### Consultar a API do Grafana
+
+`grafana-api.sh` (na raiz) chama a API do Grafana real com a senha do `.env` e
+imprime o JSON pronto para o `jq`. Uso: `./grafana-api.sh MÉTODO CAMINHO
+[CORPO_JSON]` (o corpo também pode vir da entrada padrão). Resposta fora do 2xx
+sai com erro, mostrando o código HTTP e o corpo. Exemplos:
+
+```
+./grafana-api.sh GET /api/v1/provisioning/alert-rules | jq -r '.[].title'
+./grafana-api.sh GET /api/prometheus/grafana/api/v1/rules | jq '.data.groups[].rules[] | {name, state}'
+./grafana-api.sh GET /api/datasources/uid/loki/health | jq
+```
+
+Nessas três, respectivamente: os nomes das regras de alerta, o estado de cada
+alerta (`inactive`, `pending` ou `firing`) e se a fonte de dados Loki responde
+(se o túnel estiver fora, sai com erro).
+
 ## Logs
 
 Os logs dos sites ficam no Loki da VPS (30 dias, coleta 24/7 mesmo com o PC
@@ -317,6 +334,30 @@ mudar, `docker compose restart grafana`. Eles não estão no `.env` porque o
 Grafana 13.2.3 não troca variáveis de ambiente dentro das regras (só no
 contact point); testado e explicado no cabeçalho do `regras.yml`. Os tempos de
 espera (`for:`) ficam em cada regra.
+
+### Tirar uma regra
+
+Tirar o bloco de uma regra de `regras.yml` **não a apaga do Grafana**: uma regra
+que veio do provisioning só sai com um `deleteRules` no próprio provisioning
+(pela API o Grafana recusa com 409). Acrescente ao arquivo um bloco com o
+`orgId` e o `uid` da regra (o `uid` é o campo `uid` dela no arquivo):
+
+```yaml
+deleteRules:
+  - orgId: 1
+    uid: cert-site
+```
+
+Passo a passo:
+
+1. Tire o bloco da regra de `regras.yml` e acrescente o `deleteRules` com os
+   uids a apagar.
+2. `docker compose restart grafana`.
+3. Confira: `./grafana-api.sh GET /api/v1/provisioning/alert-rules | jq -r '.[].uid'`
+   não lista mais o uid.
+4. Depois do restart, tire o `deleteRules` do arquivo. Se ele ficar, o Grafana
+   tenta apagar esse uid a cada subida, inclusive uma regra que você recriar com
+   o mesmo uid.
 
 ## Colocar no ar
 
