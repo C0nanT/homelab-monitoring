@@ -102,3 +102,23 @@ for titulo in "Disco do Loki" "Disco da VPS usado" "Disco do Loki medido há" "D
 done
 afirmar "Disco da VPS usado marca vermelho em 90% (onde o Loki passa a recusar linhas)" \
   test "$(jq -r '[.panels[]|select(.title=="Disco da VPS usado")|.fieldConfig.defaults.thresholds.steps[]|select(.color=="red")|.value]|first' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 0.9
+
+secao "Painel Logs: linha Deploy (cron)"
+
+# Linha "Deploy (cron)" com três painéis logo abaixo: estado por site, hora da
+# última rodada (Prometheus, textfile collector da borda) e o log do cron (Loki).
+afirmar "painel Logs tem a linha 'Deploy (cron)'" \
+  test "$(jq -r '[.panels[]|select(.type=="row" and .title=="Deploy (cron)")]|length' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 1
+afirmar "a linha 'Deploy (cron)' tem três painéis (estado por site, última rodada, log do cron)" \
+  test "$(jq -r '.panels|(map(.type=="row" and .title=="Deploy (cron)")|index(true)) as $i|[.[$i+1:][]|select(.type!="row")]|.[0:3]|map(.title)|join("|")' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = "Deploy por site|Última rodada do cron|Log do cron de deploy"
+for titulo in "Deploy por site" "Última rodada do cron"; do
+  afirmar "painel '$titulo' usa a fonte prometheus" \
+    test "$(jq -r --arg t "$titulo" '[.panels[]|select(.title==$t)|.targets[].datasource.uid]|unique|join(",")' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = prometheus
+  tem_dados "Logs: $titulo" "$(painel_expr "$PAINEL_LOGS" "$titulo")"
+done
+afirmar "painel 'Log do cron de deploy' usa a fonte loki e o rótulo job=\"atualizar-apps\"" \
+  test "$(jq -r '[.panels[]|select(.title=="Log do cron de deploy")|.targets[]|select(.datasource.uid=="loki" and (.expr|test("job=\"atualizar-apps\"")))]|length' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 1
+afirmar_linhas "Log do cron de deploy: mostra o atualizado e o ERRO com a mensagem" \
+  "$(logs_expr 'Log do cron de deploy' 0 conan-torres)" "atualizado conan-torres ERRO bbcontainer: smoke-deploy-erro" "smoke-conan-web"
+afirmar_linhas "Log do cron de deploy: busca de texto 'ERRO' filtra" \
+  "$(logs_expr 'Log do cron de deploy' 0 conan-torres ERRO)" "smoke-deploy-erro" "atualizado conan-torres"

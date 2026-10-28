@@ -15,12 +15,14 @@ TITULO_SITE="Site fora do ar"
 TITULO_5XX="Taxa de 5xx alta"
 TITULO_DISCO="Disco da VPS cheio"
 TITULO_JOB="Coleta da VPS parada"
+TITULO_DEPLOY="Deploy falhou (VPS)"
+TITULO_CRON="Cron de deploy parado"
 
 # Guarda a última resposta em REGRAS_JSON (usada no resto do arquivo).
 REGRAS_JSON=""
 regras_provisionadas() {
   REGRAS_JSON="$(grafana_api /api/v1/provisioning/alert-rules)" &&
-    jq -e 'length >= 6' <<<"$REGRAS_JSON" >/dev/null
+    jq -e 'length >= 8' <<<"$REGRAS_JSON" >/dev/null
 }
 if esperar_ate 60 regras_provisionadas; then
   ok "regras provisionadas aparecem na API do Grafana"
@@ -29,7 +31,7 @@ else
 fi
 [ -n "$REGRAS_JSON" ] || REGRAS_JSON='[]'
 for titulo in "$TITULO_CERT_TRAEFIK" "$TITULO_CERT_BLACKBOX" "$TITULO_SITE" \
-  "$TITULO_5XX" "$TITULO_DISCO" "$TITULO_JOB"; do
+  "$TITULO_5XX" "$TITULO_DISCO" "$TITULO_JOB" "$TITULO_DEPLOY" "$TITULO_CRON"; do
   afirmar "regra '$titulo' existe" \
     test "$(jq -r --arg t "$titulo" '[.[]|select(.title==$t)]|length' <<<"$REGRAS_JSON")" = 1
 done
@@ -41,6 +43,10 @@ afirmar "5xx: espera 10 minutos" \
   test "$(jq -r --arg t "$TITULO_5XX" '.[]|select(.title==$t)|.for' <<<"$REGRAS_JSON")" = 10m
 afirmar "job parado: espera 5 minutos" \
   test "$(jq -r --arg t "$TITULO_JOB" '.[]|select(.title==$t)|.for' <<<"$REGRAS_JSON")" = 5m
+afirmar "deploy falhou: sem espera (for 0s)" \
+  test "$(jq -r --arg t "$TITULO_DEPLOY" '.[]|select(.title==$t)|.for' <<<"$REGRAS_JSON")" = 0s
+afirmar "cron parado: sem espera (for 0s)" \
+  test "$(jq -r --arg t "$TITULO_CRON" '.[]|select(.title==$t)|.for' <<<"$REGRAS_JSON")" = 0s
 limite_regra() { # TITULO REFID -> limite numérico do nó threshold (veja o bloco "limites" em regras.yml)
   jq -r --arg t "$1" --arg r "$2" '.[]|select(.title==$t)|.data[]|select(.refId==$r)|.model.conditions[0].evaluator.params[0]' <<<"$REGRAS_JSON"
 }
@@ -49,6 +55,15 @@ afirmar "certificado (site): limite de 20 dias" test "$(limite_regra "$TITULO_CE
 afirmar "5xx: limite de 5%" test "$(limite_regra "$TITULO_5XX" E)" = 5
 afirmar "5xx: tráfego mínimo de 0.05 req/s" test "$(limite_regra "$TITULO_5XX" F)" = 0.05
 afirmar "disco: limite de 85%" test "$(limite_regra "$TITULO_DISCO" C)" = 85
+afirmar "deploy falhou: dispara acima de 0 (deploy_falhou == 1)" test "$(limite_regra "$TITULO_DEPLOY" C)" = 0
+afirmar "cron parado: limite de 30 minutos" test "$(limite_regra "$TITULO_CRON" C)" = 30
+afirmar "deploy falhou: consulta lê a série deploy_falhou" \
+  test "$(jq -r --arg t "$TITULO_DEPLOY" '.[]|select(.title==$t)|.data[]|select(.refId=="A")|.model.expr' <<<"$REGRAS_JSON")" = 'deploy_falhou{job="node"}'
+EXPR_CRON="$(jq -r --arg t "$TITULO_CRON" '.[]|select(.title==$t)|.data[]|select(.refId=="A")|.model.expr' <<<"$REGRAS_JSON")"
+afirmar "cron parado: consulta usa a hora da última rodada e cobre a série ausente (absent)" \
+  bash -c 'grep -q deploy_rodada_timestamp_seconds <<<"$1" && grep -q "absent(" <<<"$1"' _ "$EXPR_CRON"
+afirmar "deploy falhou: mensagem cita o app" \
+  bash -c 'jq -e --arg t "$1" ".[]|select(.title==\$t)|.annotations.summary|contains(\"labels.app\")" <<<"$2" >/dev/null' _ "$TITULO_DEPLOY" "$REGRAS_JSON"
 afirmar "nenhuma regra ficou com variável \$LIMITE_ sem trocar" \
   bash -c '! grep -rq "LIMITE_" "$1"' _ "$RAIZ/grafana/provisioning/alerting"
 
@@ -140,3 +155,10 @@ afirmar "5xx: serviço sem 5xx (conantorres@docker) NÃO dispara" \
   bash -c '! printf "%s\n" "$1" | grep -q "conantorres@docker"' _ "$(estado_alertas "$TITULO_5XX")"
 afirmar "disco a 60% NÃO dispara" test -z "$(estado_alertas "$TITULO_DISCO")"
 afirmar "jobs traefik e node no ar NÃO disparam" test -z "$(estado_alertas "$TITULO_JOB")"
+# Com as séries falsas do deploy (0 e rodada há 1 min), nenhum dos dois dispara
+# e a consulta do cron parado devolve ~1 minuto.
+afirmar "deploy em dia (deploy_falhou = 0) NÃO dispara" test -z "$(estado_alertas "$TITULO_DEPLOY")"
+afirmar "cron rodando (última rodada há 1 min) NÃO dispara" test -z "$(estado_alertas "$TITULO_CRON")"
+MIN_CRON="$(prom_valor "$EXPR_CRON")"
+afirmar "cron parado: a consulta devolve a idade da rodada em minutos (${MIN_CRON:-nenhum})" \
+  awk -v m="$MIN_CRON" 'BEGIN{exit !(m != "" && m >= 0 && m < 30)}'

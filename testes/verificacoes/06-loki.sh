@@ -18,6 +18,8 @@
 #                               (JSON, 301 GET /contato 203.0.113.9)
 #   traefik/traefik     stdout  tipo=acesso router=bbcontainer@docker   (JSON, 502)
 #   traefik/traefik     stderr  tipo=traefik "smoke-traefik-acme"
+#   job=atualizar-apps  stdout "<data> atualizado conan-torres" e
+#                               "<data> ERRO bbcontainer: smoke-deploy-erro" (log do cron)
 #   traefik/socket-proxy stderr "smoke-socket-proxy" (o ruído do socket-proxy,
 #                               que o painel Logs esconde na borda)
 
@@ -54,6 +56,8 @@ loki_empurrar '{"projeto":"traefik","servico":"traefik","stream":"stdout","tipo"
 loki_empurrar '{"projeto":"traefik","servico":"traefik","stream":"stdout","tipo":"acesso","router":"bbcontainer@docker"}' "$ACESSO_502"
 loki_empurrar '{"projeto":"traefik","servico":"traefik","stream":"stderr","tipo":"traefik"}' 'level=error msg="smoke-traefik-acme"'
 loki_empurrar '{"projeto":"traefik","servico":"socket-proxy","stream":"stderr"}' 'GET /containers/json smoke-socket-proxy'
+loki_empurrar '{"job":"atualizar-apps"}' '2026-10-28 14:30:01 atualizado conan-torres'
+loki_empurrar '{"job":"atualizar-apps"}' '2026-10-28 14:30:07 ERRO bbcontainer: smoke-deploy-erro'
 
 DS_LOKI="$(grafana_api /api/datasources || echo '[]')"
 afirmar "fonte de dados Loki (uid loki) existe" \

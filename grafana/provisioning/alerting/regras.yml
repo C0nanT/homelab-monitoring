@@ -1,7 +1,8 @@
 # Regras de alerta (Grafana, sem Alertmanager). Dados vêm do Prometheus.
 #
 # LIMITES: todos aqui, no bloco "limites" logo abaixo; é o ÚNICO lugar para
-# ajustar. Os tempos de espera (for:) ficam em cada regra: site/job 5m, 5xx 10m.
+# ajustar. Os tempos de espera (for:) ficam em cada regra: site/job 5m, 5xx 10m; deploy
+# falhou e cron parado não esperam (0s).
 # Depois de mudar, reinicie o Grafana: docker compose restart grafana
 #
 # Por que não ficam no .env: o Grafana 13.2.3 NÃO troca variáveis de ambiente
@@ -20,6 +21,7 @@ limites:
   5xx_pct: &limite_5xx_pct 5           # taxa de 5xx acima de N % ...
   5xx_trafego_min: &limite_5xx_trafego_min 0.05   # ... só com mais de N req/s (10 min)
   disco_pct: &limite_disco_pct 85      # disco / da VPS acima de N %
+  deploy_parado_min: &limite_deploy_parado_min 30   # cron de deploy sem rodar há mais de N min
 
 groups:
   - orgId: 1
@@ -286,3 +288,85 @@ groups:
               expression: B
               datasource: {type: __expr__, uid: __expr__}
               conditions: [{evaluator: {type: lt, params: [1]}}]
+  - orgId: 1
+    name: deploy
+    folder: Alertas
+    interval: 1m
+    rules:
+      - uid: deploy-falhou
+        title: Deploy falhou (VPS)
+        # deploy_falhou{app} vem do cron da VPS (textfile collector do node
+        # exporter): 1 = o pull ou o up daquele site falhou na última rodada.
+        # Sem espera: avisa já na primeira falha. Resolve quando a rodada
+        # seguinte der certo (volta a 0).
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: {severity: critical}
+        annotations:
+          summary: 'Deploy do site {{ $labels.app }} falhou na última rodada do cron da VPS (veja a linha "Deploy (cron)" do painel Logs)'
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                deploy_falhou{job="node"}
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource: {type: __expr__, uid: __expr__}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource: {type: __expr__, uid: __expr__}
+              conditions: [{evaluator: {type: gt, params: [0]}}]
+      - uid: cron-deploy-parado
+        title: Cron de deploy parado
+        # Minutos desde a última rodada. Se a série some (absent), a segunda
+        # parte da consulta devolve 99999 e o alerta dispara do mesmo jeito.
+        # Com a coleta da VPS toda parada, este e "Coleta da VPS parada" podem
+        # disparar juntos (aceito): esta aqui só olha a idade do último dado.
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels: {severity: critical}
+        annotations:
+          summary: 'Cron de deploy da VPS sem rodar há mais de 30 minutos (última rodada há {{ printf "%.0f" $values.B.Value }} min; 99999 = a série sumiu)'
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (time() - max(deploy_rodada_timestamp_seconds{job="node"})) / 60
+                or absent(deploy_rodada_timestamp_seconds{job="node"}) * 99999
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource: {type: __expr__, uid: __expr__}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              datasource: {type: __expr__, uid: __expr__}
+              conditions: [{evaluator: {type: gt, params: [*limite_deploy_parado_min]}}]
