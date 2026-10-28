@@ -38,6 +38,8 @@
 #   node_disk_{read,written}_bytes_total, node_disk_io_time_seconds_total{device="sda"}
 #   loki_dados_bytes  1,5 GiB (disco do Loki, vindo do textfile collector na borda)
 #   node_textfile_mtime_seconds{file="/textfile/loki.prom"}  medido há 1 min
+#   deploy_falhou{app="conan-torres|bbcontainer"}  0 (deploy em dia: o alerta NÃO dispara)
+#   deploy_rodada_timestamp_seconds  última rodada do cron há 1 min (< 30: o alerta NÃO dispara)
 set -eu
 
 PASTA=/tmp/metricas
@@ -215,6 +217,13 @@ loki_dados_bytes $((3 * gib / 2))
 # HELP node_textfile_mtime_seconds Unixtime mtime of textfiles successfully read.
 # TYPE node_textfile_mtime_seconds gauge
 node_textfile_mtime_seconds{file="/textfile/loki.prom"} $((agora - 60))
+# HELP deploy_falhou 1 se o pull ou o up do site falhou na última rodada do cron.
+# TYPE deploy_falhou gauge
+deploy_falhou{app="conan-torres"} 0
+deploy_falhou{app="bbcontainer"} 0
+# HELP deploy_rodada_timestamp_seconds Fim da última rodada do cron de deploy (Unix).
+# TYPE deploy_rodada_timestamp_seconds gauge
+deploy_rodada_timestamp_seconds $((agora - 60))
 FIM
 }
 

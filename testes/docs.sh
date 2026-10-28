@@ -98,6 +98,25 @@ nao_tem README.md '(nas próximas etapas)' "README sem texto de etapa futura do 
 nao_tem README.md 'provisionado (esta versão)' "roteiro não marca a etapa 4 como atual"
 tem README.md 'loki_dados_bytes' "README: painel Logs mostra o disco do Loki"
 tem testes/verificacoes/07-painel-logs.sh 'Disco do Loki' "smoke confere o disco do Loki no painel Logs"
+# Deploy pelo cron: linha "Deploy (cron)" no painel Logs e dois alertas.
+tem README.md 'Deploy (cron)' "README: linha Deploy (cron) do painel Logs"
+tem README.md 'deploy_falhou' "README: série do estado de cada site"
+tem README.md 'deploy_rodada_timestamp_seconds' "README: série da hora da última rodada"
+tem README.md 'job="atualizar-apps"' "README: rótulo do log do cron no Loki"
+tem README.md '| Deploy falhou (VPS) |' "README: tabela lista o alerta Deploy falhou (VPS)"
+tem README.md '| Cron de deploy parado |' "README: tabela lista o alerta Cron de deploy parado"
+tem README.md 'deploy_parado_min' "README: limite do cron parado fica em limites"
+tem grafana/provisioning/alerting/regras.yml 'title: Deploy falhou (VPS)' "regras.yml tem o alerta Deploy falhou (VPS)"
+tem grafana/provisioning/alerting/regras.yml 'title: Cron de deploy parado' "regras.yml tem o alerta Cron de deploy parado"
+tem grafana/provisioning/alerting/regras.yml 'deploy_parado_min: &limite_deploy_parado_min' "regras.yml: limite do cron parado no bloco limites"
+nao_tem grafana/provisioning/alerting/regras.yml 'há mais de 30 minutos' "regras.yml: texto do cron parado não repete o limite (só deploy_parado_min)"
+nao_tem grafana/dashboards/logs.json 'mais de 30 min' "logs.json: descrição não repete o limite do cron parado"
+nao_tem README.md 'há mais de **30 min**' "README: tabela de alertas não repete o limite do cron parado"
+tem grafana/provisioning/alerting/regras.yml '$labels.app' "alerta de deploy cita o app na mensagem"
+tem testes/verificacoes/05-alertas.sh 'Deploy falhou (VPS)' "smoke confere o alerta Deploy falhou (VPS)"
+tem testes/verificacoes/05-alertas.sh 'Cron de deploy parado' "smoke confere o alerta Cron de deploy parado"
+tem testes/verificacoes/07-painel-logs.sh 'Deploy (cron)' "smoke confere a linha Deploy (cron) do painel Logs"
+tem testes/fixtures/tunel-falso/gerar-metricas.sh 'deploy_rodada_timestamp_seconds' "túnel falso publica as séries do deploy"
 tem_re .github/dependabot.yml '^  - package-ecosystem: "?docker-compose"?$' "Dependabot cobre o compose principal"
 tem_re .github/dependabot.yml '^  - package-ecosystem: "?docker"?$' "Dependabot cobre o Dockerfile do túnel"
 tem_re .github/dependabot.yml '^    directory: "?/tunel"?$' "Dependabot aponta para a pasta do Dockerfile do túnel"
@@ -125,4 +144,7 @@ tem README.md 'não lê o `.env`' "README: motivo de nginx e Loki falso ficarem 
 tem README.md 'confere a tag do Loki falso' "README: docs.sh confere o Loki falso contra a nota da borda"
 nao_tem README.md 'O PR do Loki chega nos dois repositórios' "README não promete PR do Loki neste repositório"
 if [ -n "$(ls .github/workflows 2>/dev/null)" ]; then echo "FALHA .github/workflows não deve existir (sem auto-merge)"; falhas=$((falhas + 1)); else echo "ok    sem workflow de auto-merge"; fi
+# Checklist da falha forçada: a referência fica na seção dos alertas e aponta o checklist da borda.
+tem README.md '../traefik-default#checklist-manual-da-falha-forçada' "README: aponta o checklist da falha forçada na borda"
+tem README.md 'Para ver os dois alertas de deploy dispararem de verdade' "README: referência ao checklist da falha forçada, junto dos alertas"
 exit $((falhas > 0))

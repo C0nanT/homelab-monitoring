@@ -215,6 +215,15 @@ O painel **Logs** (`grafana/dashboards/logs.json`, uid `homelab-logs`) tem:
   túnel da 9100, job `node`. Se o disco apertar, baixe a retenção em
   `loki/loki.yml` do traefik-default.
 
+- **Deploy (cron)** (linha no fim, três painéis; o seletor Site não vale
+  aqui): **Deploy por site** (`ok` ou `falhou` de cada site na última rodada
+  do cron da VPS, série `deploy_falhou{app}`), **Última rodada do cron**
+  (série `deploy_rodada_timestamp_seconds`) e **Log do cron de deploy**
+  (`atualizado <site>` e `ERRO <site>: <mensagem>`, com a busca de texto). As
+  duas séries o cron grava no textfile collector do node exporter e chegam
+  pelo túnel da 9100, job `node`; o log chega ao Loki com o rótulo
+  `job="atualizar-apps"` (no Explore: `{job="atualizar-apps"} |= "ERRO"`).
+
 O log de acesso e as classes de status somam o router do site e o do `www`
 (`router=~"$site(-www)?@.+"`; a regex do Loki casa o valor inteiro).
 
@@ -252,6 +261,17 @@ das mensagens).
 | Taxa de 5xx alta | mais de **5%** das respostas de um serviço são 5xx (janela de 10 min) **e** o serviço tem mais de **0,05 req/s** | 10 min |
 | Disco da VPS cheio | `/` acima de **85%** | 0 |
 | Coleta da VPS parada | job `traefik` ou `node` `down` | 5 min |
+| Deploy falhou (VPS) | `deploy_falhou` = 1 em algum site (o `app` vai na mensagem); resolve quando a rodada seguinte der certo | 0 |
+| Cron de deploy parado | última rodada do cron (`deploy_rodada_timestamp_seconds`) há mais que o limite `deploy_parado_min`, ou a série sumiu | 0 |
+
+O limite do cron parado é `deploy_parado_min` (padrão 30 min), no bloco `limites` de
+`regras.yml`. Se a coleta da VPS toda parar, "Coleta da VPS parada" e "Cron de
+deploy parado" podem disparar juntos (aceito).
+
+Para ver os dois alertas de deploy dispararem de verdade (forçar uma falha na
+VPS, receber no Telegram e vê-lo resolver), siga o
+[checklist da falha forçada](../traefik-default#checklist-manual-da-falha-forçada)
+no README do `traefik-default`.
 
 Cada mensagem diz a gravidade, qual alerta, qual certificado, site ou serviço
 com o valor atual, e desde quando (horário de Brasília):
