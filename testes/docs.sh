@@ -90,4 +90,16 @@ nao_tem README.md '(nas próximas etapas)' "README sem texto de etapa futura do 
 nao_tem README.md 'provisionado (esta versão)' "roteiro não marca a etapa 4 como atual"
 tem README.md 'loki_dados_bytes' "README: painel Logs mostra o disco do Loki"
 tem testes/verificacoes/07-painel-logs.sh 'Disco do Loki' "smoke confere o disco do Loki no painel Logs"
+tem .github/dependabot.yml 'package-ecosystem: docker-compose' "Dependabot cobre o compose principal"
+tem .github/dependabot.yml 'package-ecosystem: docker' "Dependabot cobre o Dockerfile do túnel"
+tem .github/dependabot.yml 'directory: /tunel' "Dependabot aponta para a pasta do Dockerfile do túnel"
+tem .github/dependabot.yml 'interval: monthly' "Dependabot roda uma vez por mês"
+tem .github/dependabot.yml 'default-days: 14' "Dependabot só propõe versões com 14 dias de publicadas"
+tem .github/dependabot.yml 'groups:' "Dependabot agrupa as imagens em um PR por ecossistema"
+nao_tem .github/dependabot.yml 'open-pull-requests-limit: 0' "Dependabot não está desligado"
+tem README.md 'PR do Dependabot' "README: roteiro começa pelo PR do Dependabot"
+tem README.md 'docker compose build tunel' "README: PR do Alpine passa pelo build do túnel"
+tem README.md 'PR do Loki' "README: PR do Loki chega nos dois repositórios"
+tem README.md 'Dependency graph' "README: onde conferir se o Dependabot leu a configuração"
+if [ -n "$(ls .github/workflows 2>/dev/null)" ]; then echo "FALHA .github/workflows não deve existir (sem auto-merge)"; falhas=$((falhas + 1)); else echo "ok    sem workflow de auto-merge"; fi
 exit $((falhas > 0))
