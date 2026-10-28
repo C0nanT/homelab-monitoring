@@ -470,9 +470,11 @@ entra em contagem para o serviço de tráfego alto mas não para o de tráfego
 quase zero. Nenhuma mensagem real é enviada (token falso e
 `api.telegram.org` apontado para `127.0.0.1` só no smoke). Derruba tudo
 no final, mesmo com falha. Usa o projeto
-`homelab-smoke`, `127.0.0.1:9090` e `127.0.0.1:3000`: não rode com a pilha
-real de pé. Leva
-cerca de um minuto.
+`homelab-smoke`, `127.0.0.1:19090` (Prometheus) e `127.0.0.1:13000`
+(Grafana): roda com a pilha real de pé, sem parar nem mexer em nada dela.
+Antes de subir, confere se essas portas estão livres e, se uma estiver
+ocupada, sai dizendo qual (troque com `PORTA_PROMETHEUS` e `PORTA_GRAFANA`).
+Leva cerca de um minuto.
 
 Para estender (as próximas etapas): uma verificação nova é um arquivo
 `testes/verificacoes/NN-nome.sh`; um serviço falso novo é um override em
@@ -513,8 +515,8 @@ ecossistema com as imagens que tiveram versão nova e publicada há pelo menos
 Alpine do `tunel/Dockerfile`. Nada é aplicado sozinho. Para cada PR:
 
 1. Leia as notas de versão que o PR traz.
-2. Pare a pilha real (`docker compose down`): o smoke usa as portas 9090 e
-   3000.
+2. Deixe a pilha real de pé: o smoke usa as portas 19090 e 13000 e convive
+   com ela.
 3. Rode `testes/smoke.sh` na branch do PR. No PR do Alpine, rode também
    `docker compose build tunel` (o smoke não usa a imagem do túnel).
 4. Aprove e faça o merge.
@@ -538,7 +540,7 @@ Para atualizar, de propósito:
    <https://github.com/grafana/grafana/releases>,
    <https://alpinelinux.org/releases/>).
 2. Teste antes: troque a tag no arquivo dela (só ali) e rode
-   `testes/smoke.sh` (usa `127.0.0.1:9090`). O smoke não usa a imagem do
+   `testes/smoke.sh` (usa `127.0.0.1:19090`, com a pilha real de pé). O smoke não usa a imagem do
    túnel (troca-o por um alvo falso): para o Alpine, rode
    `docker compose build tunel` e confira, depois do passo 3, os jobs
    `traefik` e `node` `UP` e `docker compose logs tunel`.
