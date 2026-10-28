@@ -370,6 +370,10 @@ no túnel ou no bot.
   `cd /opt/traefik && docker compose restart traefik`. O alvo `traefik` pode
   cair por alguns segundos e volta a `UP` sozinho no PC (o túnel aponta para
   o loopback da VPS, que não muda com o container; nada a refazer).
+- [ ] **O Dependabot leu a configuração.** No GitHub, *Insights →
+  Dependency graph → Dependabot* mostra os dois ecossistemas (`docker-compose`
+  e `docker`) sem erro; confira depois do merge que mexe em
+  `.github/dependabot.yml`.
 - [ ] **O alerta de teste chega no Telegram.** Veja "Mandar um alerta de
   teste".
 
@@ -423,7 +427,47 @@ aparece em um único arquivo:
   `prom/blackbox-exporter:vX.Y.Z` e `grafana/grafana:X.Y.Z`;
 - `tunel/Dockerfile`: `alpine:X.Y.Z` (o autossh e o ssh vêm dos pacotes
   dessa versão do Alpine);
-- `testes/smoke.env`: `nginx:X.Y.Z-alpine` (só dos sites falsos do smoke).
+- `testes/smoke.env`: `nginx:X.Y.Z-alpine` (só dos sites falsos do smoke) e
+  `grafana/loki:X.Y.Z` (o Loki falso, que repete a tag do Loki da borda).
+
+Referência da versão do Loki da borda (a única anotação dela neste
+repositório; o `docs.sh` compara com ela o `IMAGEM_LOKI` do smoke):
+
+> Loki da borda: `grafana/loki:3.7.8`
+
+As duas imagens só do smoke ficam em `testes/smoke.env` e **não** entram no
+PR do Dependabot, por decisão: o ecossistema `docker-compose` só lê arquivos
+cujo nome contém "compose" e não lê o `.env`, e o `${IMAGEM_*:?}` dos
+arquivos de `testes/compose/` fica invisível a ele. Torná-las literais
+exigiria renomear os arquivos e repetir o nginx em três lugares, e o
+resultado só se conferiria no GitHub depois do merge. Em troca, o nginx é só
+de teste e o `testes/docs.sh` confere a tag do Loki falso contra a nota
+acima: ele falha se as duas divergirem.
+
+### Pelo PR do Dependabot
+
+Uma vez por mês o Dependabot (`.github/dependabot.yml`) abre um PR por
+ecossistema com as imagens que tiveram versão nova e publicada há pelo menos
+14 dias: um para o compose (Prometheus, blackbox, Grafana) e outro para o
+Alpine do `tunel/Dockerfile`. Nada é aplicado sozinho. Para cada PR:
+
+1. Leia as notas de versão que o PR traz.
+2. Pare a pilha real (`docker compose down`): o smoke usa as portas 9090 e
+   3000.
+3. Rode `testes/smoke.sh` na branch do PR. No PR do Alpine, rode também
+   `docker compose build tunel` (o smoke não usa a imagem do túnel).
+4. Aprove e faça o merge.
+5. Aplique: `docker compose pull`, `docker compose build` e
+   `docker compose up -d`; depois `docker compose ps && docker compose logs
+   --tail 50`.
+
+O PR do Loki chega só no `traefik-default`. Ao aprová-lo, atualize aqui, na
+mesma hora, o `IMAGEM_LOKI` do `testes/smoke.env` e a nota "Loki da borda"
+acima; o `testes/docs.sh` falha enquanto os dois não baterem.
+
+### À mão
+
+O roteiro abaixo continua valendo para atualizar sem o Dependabot.
 
 Para atualizar, de propósito:
 

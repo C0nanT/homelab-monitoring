@@ -1,0 +1,29 @@
+# Atualização das imagens Docker da pilha do PC, uma vez por mês.
+# Abre no máximo um PR por ecossistema, só com versões publicadas há pelo
+# menos 14 dias (cooldown). Nada é aplicado sozinho: não há auto-merge, o PR
+# é revisado e aprovado à mão (veja "Fixar e atualizar as versões" no README).
+# As tags de testes/smoke.env não são lidas pelo Dependabot (ticket à parte).
+version: 2
+updates:
+  # Prometheus, blackbox e Grafana (docker-compose.yml na raiz).
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 14
+    groups:
+      imagens-compose:
+        patterns: ["*"]
+  # Alpine do túnel (tunel/Dockerfile).
+  - package-ecosystem: docker
+    directory: /tunel
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 14
+    groups:
+      imagens-dockerfile:
+        patterns: ["*"]
