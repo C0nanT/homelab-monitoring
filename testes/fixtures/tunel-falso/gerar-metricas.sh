@@ -36,6 +36,8 @@
 #     {device="/dev/sda1",fstype="ext4",mountpoint="/"}  60% usado (< 85%: alerta de disco NÃO dispara)
 #   node_network_{receive,transmit}_bytes_total{device="eth0"}
 #   node_disk_{read,written}_bytes_total, node_disk_io_time_seconds_total{device="sda"}
+#   loki_dados_bytes  1,5 GiB (disco do Loki, vindo do textfile collector na borda)
+#   node_textfile_mtime_seconds{file="/textfile/loki.prom"}  medido há 1 min
 set -eu
 
 PASTA=/tmp/metricas
@@ -207,6 +209,12 @@ node_disk_written_bytes_total{device="sda"} $((700000000 + 120000 * decorridos))
 # HELP node_disk_io_time_seconds_total Total seconds spent doing I/Os.
 # TYPE node_disk_io_time_seconds_total counter
 node_disk_io_time_seconds_total{device="sda"} $((3000 + decorridos / 50))
+# HELP loki_dados_bytes Disco ocupado pelos dados do Loki (volume loki-dados).
+# TYPE loki_dados_bytes gauge
+loki_dados_bytes $((3 * gib / 2))
+# HELP node_textfile_mtime_seconds Unixtime mtime of textfiles successfully read.
+# TYPE node_textfile_mtime_seconds gauge
+node_textfile_mtime_seconds{file="/textfile/loki.prom"} $((agora - 60))
 FIM
 }
 

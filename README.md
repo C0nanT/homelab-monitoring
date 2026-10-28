@@ -167,8 +167,8 @@ Tudo é provisionado por arquivo e versionado: recriar o Grafana do zero
   TLS por site, e os dias até vencer o certificado **lado a lado**: o que o
   blackbox recebeu de fora e o que o Traefik tem guardado.
 - **Logs** (`logs.json`, próprio): logs da aplicação e log de acesso do
-  Traefik por site, linhas de erro e respostas por classe de status (veja
-  "Logs"). Sites e Traefik têm um link para ele no topo.
+  Traefik por site, linhas de erro, respostas por classe de status e o
+  disco do Loki (veja "Logs"). Sites e Traefik têm um link para ele no topo.
 - Os painéis são editáveis na tela só para olhar; as mudanças **não** são
   salvas (vêm dos arquivos).
 
@@ -205,6 +205,15 @@ O painel **Logs** (`grafana/dashboards/logs.json`, uid `homelab-logs`) tem:
   log de acesso (útil para cruzar com o alerta de 5xx).
 - **Logs da aplicação** e **Log de acesso** (status, método, caminho,
   `ClientHost` e duração em ms, extraídos com `| json`).
+- **Armazenamento dos logs** (linha no fim, fonte `prometheus`, não muda
+  com o site):
+  quanto os 30 dias de logs ocupam na VPS, o disco da VPS inteiro (vermelho
+  em 90%: dali para cima o Loki **recusa** linhas novas), há quanto tempo foi
+  medido (vermelho passados 15 min) e o crescimento em 30 dias. O número
+  vem da série `loki_dados_bytes`, que o serviço `disco-loki` da borda mede a
+  cada 5 min e o node exporter publica (textfile collector); chega pelo
+  túnel da 9100, job `node`. Se o disco apertar, baixe a retenção em
+  `loki/loki.yml` do traefik-default.
 
 O log de acesso e as classes de status somam o router do site e o do `www`
 (`router=~"$site(-www)?@.+"`; a regex do Loki casa o valor inteiro).

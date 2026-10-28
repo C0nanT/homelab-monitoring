@@ -21,8 +21,8 @@ afirmar "painel Logs tem a variável de busca 'busca'" \
   test "$(jq -r '[.templating.list[]|select(.name=="busca")]|length' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 1
 afirmar "a busca entra no painel só entre crases (aspas na busca não quebram a consulta)" \
   test "$(jq -r '[.panels[].targets[]?.expr|select(test("[$]busca"))|select(test("`[$]busca`")|not)]|length' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 0
-afirmar "todas as consultas do painel Logs usam a fonte loki" \
-  test "$(jq -r '[.panels[].targets[]?|select(.datasource.uid!="loki")]|length' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 0
+afirmar "as consultas de logs do painel Logs usam a fonte loki" \
+  test "$(jq -r '[.panels[].targets[]?|select(.expr|test("projeto="))|select(.datasource.uid!="loki")]|length' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 0
 
 # logs_expr TITULO N SITE [BUSCA] -> consulta N (0-based) do painel, com as
 # variáveis trocadas como o Grafana faz: valor cru, sem escape (a fonte Loki
@@ -90,3 +90,15 @@ afirmar "Status: conan-torres tem 1 2xx e 1 3xx (o www) e nenhuma 4xx/5xx" \
   esperar_ate 30 status_conferem conan-torres "1 1 0 0"
 afirmar "Status: bbcontainer tem 1 5xx e nada mais (o www do conan-torres não entra)" \
   status_conferem bbcontainer "0 0 0 1"
+
+secao "Painel Logs: disco do Loki (Prometheus, via node exporter da borda)"
+
+# loki_dados_bytes vem do textfile collector do node exporter da VPS (serviço
+# disco-loki do traefik-default); no smoke, do túnel falso (1,5 GiB).
+for titulo in "Disco do Loki" "Disco da VPS usado" "Disco do Loki medido há" "Disco do Loki ao longo do tempo"; do
+  afirmar "painel '$titulo' usa a fonte prometheus" \
+    test "$(jq -r --arg t "$titulo" '[.panels[]|select(.title==$t)|.targets[].datasource.uid]|unique|join(",")' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = prometheus
+  tem_dados "Logs: $titulo" "$(painel_expr "$PAINEL_LOGS" "$titulo")"
+done
+afirmar "Disco da VPS usado marca vermelho em 90% (onde o Loki passa a recusar linhas)" \
+  test "$(jq -r '[.panels[]|select(.title=="Disco da VPS usado")|.fieldConfig.defaults.thresholds.steps[]|select(.color=="red")|.value]|first' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 0.9
