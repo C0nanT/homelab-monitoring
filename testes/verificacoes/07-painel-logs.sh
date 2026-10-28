@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Carregado pelo testes/smoke.sh; usa as funções de testes/lib.sh, de
-# 04-grafana.sh (grafana_api, grafana_loki) e de 06-loki.sh (afirmar_linhas),
+# 04-grafana.sh (grafana-api.sh, grafana_loki) e de 06-loki.sh (afirmar_linhas),
 # e as linhas que o 06 injetou. Roda ANTES do 98 (que derruba o Loki falso).
 # O painel Logs existe e as consultas DELE (lidas do JSON, com as variáveis
 # trocadas pelo site escolhido) devolvem dados só do site escolhido.
@@ -8,12 +8,12 @@
 secao "Painel Logs: provisionado e consultas por site"
 
 PAINEL_LOGS=logs.json
-PAINEIS_LOGS="$(grafana_api '/api/search?type=dash-db' || echo '[]')"
+PAINEIS_LOGS="$("$RAIZ/grafana-api.sh" GET '/api/search?type=dash-db' || echo '[]')"
 afirmar "painel 'Logs' (uid homelab-logs) existe" \
   test "$(jq -r '[.[]|select(.uid=="homelab-logs" and .title=="Logs")]|length' <<<"$PAINEIS_LOGS")" = 1
 for uid in homelab-sites "$(jq -r '[.[]|select(.title=="Traefik")|.uid]|first' <<<"$PAINEIS_LOGS")"; do
   afirmar "painel $uid tem link no topo para o painel Logs" \
-    test "$(grafana_api "/api/dashboards/uid/$uid" | jq -r '[.dashboard.links[]?|select(.url|test("/d/homelab-logs"))]|length')" -ge 1
+    test "$("$RAIZ/grafana-api.sh" GET "/api/dashboards/uid/$uid" | jq -r '[.dashboard.links[]?|select(.url|test("/d/homelab-logs"))]|length')" -ge 1
 done
 afirmar "variável 'site' do painel Logs tem conan-torres, bbcontainer e a borda (traefik)" \
   test "$(jq -r '[.templating.list[]|select(.name=="site")|.query]|first' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = "conan-torres,bbcontainer,traefik"

@@ -17,26 +17,20 @@ else
   falha "Grafana saudável pela API em 60s" "veja: docker compose logs grafana"
 fi
 
-# grafana_api CAMINHO [curl...] -> usa a senha do .env (usuário admin).
-grafana_api() {
-  local caminho="$1"
-  shift
-  curl -sf --max-time 10 -u "admin:$GRAFANA_SENHA_ADMIN" "$@" "$GRAFANA_URL$caminho"
-}
-
-# As três funções abaixo também são usadas por 06-loki.sh, 07-painel-logs.sh
-# e 98-loki-fora.sh (carregados depois deste arquivo).
+# As funções abaixo chamam o grafana-api.sh (GRAFANA_URL e GRAFANA_SENHA_ADMIN
+# da pilha de teste vêm do ambiente) e também são usadas por 06-loki.sh,
+# 07-painel-logs.sh e 98-loki-fora.sh (carregados depois deste arquivo).
 
 # fonte_saudavel UID -> sucesso se o Grafana testa a fonte de dados com OK.
 fonte_saudavel() {
-  grafana_api "/api/datasources/uid/$1/health" --max-time 20 |
+  "$RAIZ/grafana-api.sh" GET "/api/datasources/uid/$1/health" |
     jq -e '.status=="OK"' >/dev/null
 }
 
 # grafana_ds_query CORPO_JSON -> resposta de /api/ds/query (a consulta que um
 # painel faz, executada pelo próprio Grafana).
 grafana_ds_query() {
-  grafana_api /api/ds/query --max-time 15 -H 'Content-Type: application/json' -d "$1"
+  "$RAIZ/grafana-api.sh" POST /api/ds/query "$1"
 }
 
 # grafana_loki MODO EXPRESSAO -> resposta do Grafana para uma consulta LogQL
@@ -46,7 +40,7 @@ grafana_loki() {
     '{queries:[{refId:"A",datasource:{type:"loki",uid:"loki"},expr:$e,queryType:$m,maxLines:100}],from:"now-1h",to:"now"}')"
 }
 
-afirmar "login com a senha do .env funciona" grafana_api /api/org
+afirmar "login com a senha do .env funciona" "$RAIZ/grafana-api.sh" GET /api/org
 afirmar "admin/admin NÃO funciona (senha vem do .env)" \
   bash -c '! curl -sf --max-time 10 -u admin:admin "$1/api/org"' _ "$GRAFANA_URL"
 afirmar "API sem credenciais é recusada (401)" \
@@ -65,7 +59,7 @@ fi
 
 secao "Grafana: fonte de dados e painéis provisionados"
 
-DS_JSON="$(grafana_api /api/datasources || echo '[]')"
+DS_JSON="$("$RAIZ/grafana-api.sh" GET /api/datasources || echo '[]')"
 afirmar "fonte de dados Prometheus (uid prometheus) existe" \
   test "$(jq -r '[.[]|select(.uid=="prometheus" and .type=="prometheus")]|length' <<<"$DS_JSON")" = 1
 afirmar "fonte de dados Prometheus é a padrão" \
@@ -74,7 +68,7 @@ afirmar "fonte de dados é provisionada (somente leitura na interface)" \
   test "$(jq -r '[.[]|select(.uid=="prometheus")|.readOnly]|first' <<<"$DS_JSON")" = true
 afirmar "Grafana testa a fonte de dados com sucesso" fonte_saudavel prometheus
 
-PAINEIS_JSON="$(grafana_api '/api/search?type=dash-db' || echo '[]')"
+PAINEIS_JSON="$("$RAIZ/grafana-api.sh" GET '/api/search?type=dash-db' || echo '[]')"
 for titulo in "Traefik" "Node Exporter Full" "Sites"; do
   afirmar "painel '$titulo' existe" \
     test "$(jq -r --arg t "$titulo" '[.[]|select(.title|startswith($t))]|length' <<<"$PAINEIS_JSON")" -ge 1
