@@ -147,4 +147,14 @@ if [ -n "$(ls .github/workflows 2>/dev/null)" ]; then echo "FALHA .github/workfl
 # Checklist da falha forçada: a referência fica na seção dos alertas e aponta o checklist da borda.
 tem README.md '../traefik-default#checklist-manual-da-falha-forçada' "README: aponta o checklist da falha forçada na borda"
 tem README.md 'Para ver os dois alertas de deploy dispararem de verdade' "README: referência ao checklist da falha forçada, junto dos alertas"
+# Ajudante da API do Grafana: exemplos curtos na seção do Grafana.
+tem README.md '### Consultar a API do Grafana' "README: seção do ajudante da API do Grafana"
+tem README.md './grafana-api.sh GET /api/v1/provisioning/alert-rules | jq' "README: exemplo lista as regras de alerta"
+tem README.md './grafana-api.sh GET /api/prometheus/grafana/api/v1/rules | jq' "README: exemplo mostra o estado dos alertas com jq"
+tem README.md './grafana-api.sh GET /api/datasources/uid/loki/health | jq' "README: exemplo testa a fonte de dados Loki"
+# Pegadinha do provisioning: regra provisionada só sai com deleteRules (seção de alertas).
+tem README.md '### Tirar uma regra' "README: seção para tirar uma regra dos alertas"
+tem README.md 'não a apaga do Grafana' "README: tirar a regra do arquivo não a apaga do Grafana"
+tem README.md 'deleteRules:' "README: bloco deleteRules de exemplo"
+tem README.md 'Depois do restart, tire o `deleteRules` do arquivo' "README: remover o deleteRules depois de aplicar"
 exit $((falhas > 0))
