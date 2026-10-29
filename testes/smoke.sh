@@ -16,8 +16,12 @@
 # usam token falso e api.telegram.org -> 127.0.0.1. Leva ~1 minuto.
 #
 # Uso:   testes/smoke.sh
+#        VAR=valor testes/smoke.sh   (o ambiente tem prioridade sobre o smoke.env,
+#        que só dá os valores padrão; vale para qualquer variável dele)
 # Saída: código 0 se todas as verificações passarem; diferente de zero se
-#        alguma falhar ou se a pilha não subir.
+#        alguma falhar ou se a pilha não subir. Se terminar com erro antes de
+#        verificar (preparando / subindo a pilha), a última linha é ABORTOU
+#        com a etapa e a causa, no lugar do placar.
 #
 # Como estender (tickets seguintes):
 #   - nova verificação: crie testes/verificacoes/NN-nome.sh. Todos os arquivos
@@ -38,18 +42,27 @@ cd "$RAIZ" || exit 1
 # shellcheck source=testes/lib.sh
 . "$RAIZ/testes/lib.sh"
 
-# Portas escolhidas pelo ambiente valem mais que as do smoke.env.
-porta_prometheus_ambiente="${PORTA_PROMETHEUS:-}"
-porta_grafana_ambiente="${PORTA_GRAFANA:-}"
-
-# Variáveis do teste (também lidas pelos composes via testes/smoke.env).
-set -a
-# shellcheck source=testes/smoke.env
-. "$RAIZ/testes/smoke.env"
-set +a
-export PORTA_PROMETHEUS="${porta_prometheus_ambiente:-${PORTA_PROMETHEUS:-19090}}"
+# Variáveis do teste (também lidas pelos composes via testes/smoke.env). O
+# smoke.env só dá os padrões: qualquer variável definida (não vazia) no ambiente vale
+# mais (ex.: PORTA_PROMETHEUS=19191 testes/smoke.sh). O compose faz o mesmo com
+# o --env-file, então o valor do ambiente também chega aos contêineres.
+carregar_smoke_env() {
+  local nome
+  local -A do_ambiente=()
+  while IFS= read -r nome; do
+    [ -z "${!nome:-}" ] || do_ambiente[$nome]="${!nome}"
+  done < <(grep -oE '^[[:space:]]*(export[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*=' "$RAIZ/testes/smoke.env" |
+    sed -E 's/^[[:space:]]*(export[[:space:]]+)?//; s/=$//')
+  set -a
+  # shellcheck source=testes/smoke.env
+  . "$RAIZ/testes/smoke.env"
+  for nome in "${!do_ambiente[@]}"; do
+    export "$nome=${do_ambiente[$nome]}"
+  done
+  set +a
+}
+carregar_smoke_env
 PROM_URL="http://127.0.0.1:$PORTA_PROMETHEUS"
-export PORTA_GRAFANA="${porta_grafana_ambiente:-${PORTA_GRAFANA:-13000}}"
 export GRAFANA_URL="http://127.0.0.1:$PORTA_GRAFANA" # o grafana-api.sh também lê
 
 # Pasta temporária (certificados falsos, configs geradas). Fora do repositório.
@@ -67,15 +80,39 @@ pilha() {
   docker compose "${args[@]}" "$@"
 }
 
+# Etapa atual e causa do erro, para o ABORTOU. NAO_DERRUBAR=1: nada subiu
+# (porta ocupada), então o down -v não pode rodar (derrubaria outro smoke).
+ETAPA="preparando"
+CAUSA=""
+NAO_DERRUBAR=0
+
+abortar() { # causa
+  CAUSA="$1"
+  echo "$CAUSA" >&2
+  exit 1
+}
+
 limpar() {
-  secao "Derrubando a pilha"
-  pilha down -v --remove-orphans >/dev/null 2>&1 || true
+  if [ "$NAO_DERRUBAR" -eq 0 ]; then
+    secao "Derrubando a pilha"
+    pilha down -v --remove-orphans >/dev/null 2>&1 || true
+  fi
   rm -rf "$SMOKE_TMP"
 }
 
 finalizar() {
   local rc=$?
+  # A causa vem do log do compose, que limpar apaga junto com SMOKE_TMP.
+  if [ "$rc" -ne 0 ] && [ "$ETAPA" != "verificando" ] && [ -z "$CAUSA" ] && [ -f "$SMOKE_TMP/up.log" ]; then
+    CAUSA="$(grep -i 'error' "$SMOKE_TMP/up.log" | tail -n 1)"
+    [ -n "$CAUSA" ] || CAUSA="$(grep -v '^[[:space:]]*$' "$SMOKE_TMP/up.log" | tail -n 1)"
+  fi
   limpar
+  if [ "$rc" -ne 0 ] && [ "$ETAPA" != "verificando" ]; then
+    printf '\nABORTOU na etapa "%s" (nenhuma verificação rodou). Código de saída: %d\n' "$ETAPA" "$rc"
+    [ -z "$CAUSA" ] || printf 'Causa: %s\n' "$CAUSA"
+    exit "$rc"
+  fi
   if [ "$rc" -eq 0 ] && [ "$FALHAS" -gt 0 ]; then
     rc=1
   fi
@@ -96,8 +133,8 @@ gerar_cert() { # pasta nome
     -keyout "$1/key.pem" -out "$1/cert.pem" \
     -subj "/CN=$2" -addext "subjectAltName=DNS:$2" >/dev/null 2>&1
 }
-gerar_cert "$SMOKE_TMP/certs-ok" site-ok || { echo "openssl falhou." >&2; exit 1; }
-gerar_cert "$SMOKE_TMP/certs-ruim" site-cert-ruim || { echo "openssl falhou." >&2; exit 1; }
+gerar_cert "$SMOKE_TMP/certs-ok" site-ok || abortar "openssl falhou."
+gerar_cert "$SMOKE_TMP/certs-ruim" site-cert-ruim || abortar "openssl falhou."
 
 # Mesmas configs da raiz, com só o necessário trocado (sem duplicar o resto):
 # scrape de 5s no Prometheus e a CA do site falso no módulo do blackbox.
@@ -109,8 +146,7 @@ cp "$RAIZ/testes/fixtures/alvos-sites.yml" "$SMOKE_TMP/alvos/sites.yml"
 chmod -R a+rX "$SMOKE_TMP"
 
 if ! grep -q 'ca_file' "$SMOKE_TMP/blackbox.yml"; then
-  echo "Não consegui inserir a CA do smoke em blackbox.yml (formato mudou?)." >&2
-  exit 1
+  abortar "Não consegui inserir a CA do smoke em blackbox.yml (formato mudou?)."
 fi
 
 secao "Conferindo as portas"
@@ -123,23 +159,24 @@ porta_ocupada() { # porta
 for par in PORTA_PROMETHEUS:Prometheus PORTA_GRAFANA:Grafana; do
   var="${par%%:*}"
   if porta_ocupada "${!var}"; then
-    echo "A porta ${!var} (${par##*:}) já está ocupada em 127.0.0.1." >&2
-    echo "Escolha outra: $var=<porta livre> testes/smoke.sh" >&2
     # Nada subiu: sem o down -v, que derrubaria outro smoke dono da porta.
-    trap - EXIT
-    rm -rf "$SMOKE_TMP"
-    exit 1
+    NAO_DERRUBAR=1
+    abortar "A porta ${!var} (${par##*:}) já está ocupada em 127.0.0.1. Escolha outra: $var=<porta livre> testes/smoke.sh"
   fi
 done
 
 secao "Subindo a pilha"
+ETAPA="subindo a pilha"
 
-if ! pilha up -d --wait --wait-timeout 90; then
+# O tee guarda a saída para o ABORTOU achar a última linha de erro. O status
+# do if é o do up (e não o do tee) por causa do pipefail.
+if ! pilha up -d --wait --wait-timeout 90 2>&1 | tee "$SMOKE_TMP/up.log"; then
   echo "A pilha não ficou saudável." >&2
   pilha logs --tail 50 >&2 || true
   exit 1
 fi
 
+ETAPA="verificando"
 for arquivo in "$RAIZ"/testes/verificacoes/*.sh; do
   # shellcheck source=/dev/null
   . "$arquivo"

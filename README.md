@@ -474,6 +474,9 @@ no final, mesmo com falha. Usa o projeto
 (Grafana): roda com a pilha real de pé, sem parar nem mexer em nada dela.
 Antes de subir, confere se essas portas estão livres e, se uma estiver
 ocupada, sai dizendo qual (troque com `PORTA_PROMETHEUS` e `PORTA_GRAFANA`).
+Qualquer variável do `testes/smoke.env` pode ser trocada assim, sem editar o
+arquivo: o ambiente tem prioridade sobre o `testes/smoke.env`, que só dá os
+valores padrão (ex.: `PORTA_PROMETHEUS=19191 testes/smoke.sh`).
 Leva cerca de um minuto.
 
 Para estender (as próximas etapas): uma verificação nova é um arquivo
