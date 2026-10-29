@@ -490,8 +490,9 @@ O repositório traz um hook versionado em `.githooks/pre-commit`. Roda em
 segundos, sem subir contêiner (o smoke fica de fora), nesta ordem:
 
 1. `bash -n` nos scripts `.sh` versionados;
-2. `shellcheck` nesses scripts (se não estiver instalado, o hook avisa que
-   pulou a etapa e segue);
+2. `shellcheck` nesses scripts, de nível *warning* para cima (os *info* são
+   literais entre aspas simples de propósito); se não estiver instalado, o
+   hook avisa que pulou a etapa e segue;
 3. `testes/docs.sh`;
 4. os testes isolados listados em `testes/isolados.txt` (hoje
    `testes/grafana-api.sh`; sem docker nem portas fixas). Teste isolado novo

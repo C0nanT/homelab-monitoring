@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Hook de pre-commit, em segundos e sem contêineres. Etapas, nesta ordem:
 #   1. bash -n nos scripts .sh versionados e neste hook;
-#   2. shellcheck nesses scripts (pulado, com aviso, se não estiver instalado);
+#   2. shellcheck (warning ou pior) nesses scripts; pulado, com aviso, se não
+#      estiver instalado. Os "info" ficam de fora: são literais entre aspas
+#      simples de propósito (grep, bash -c, sed);
 #   3. testes/docs.sh;
 #   4. os testes isolados listados em testes/isolados.txt.
 # Ativar uma vez por clone: git config core.hooksPath .githooks
@@ -24,7 +26,7 @@ done
 
 echo "pre-commit [2/4] shellcheck"
 if command -v shellcheck >/dev/null 2>&1; then
-  shellcheck -x "${scripts[@]}" || recusar "shellcheck"
+  shellcheck -x --severity=warning "${scripts[@]}" || recusar "shellcheck"
 else
   echo "pre-commit: shellcheck não instalado; etapa pulada." >&2
 fi

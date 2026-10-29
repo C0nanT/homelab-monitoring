@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC3043  # roda no busybox ash (alpine), que tem `local`
 # Túnel falso do smoke test: gera os /metrics fixos do Traefik e do node
 # exporter e sobe o nginx que os serve (nginx.conf, portas 8082 e 9100).
 #
