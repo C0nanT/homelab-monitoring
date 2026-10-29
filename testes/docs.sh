@@ -175,4 +175,20 @@ nao_tem .githooks/pre-commit 'smoke.sh' "hook não roda o smoke"
 tem README.md 'git config core.hooksPath .githooks' "README: comando que ativa o hook"
 tem README.md '--no-verify' "README: como pular o hook numa emergência"
 tem README.md 'Hook de pre-commit' "README tem a seção do hook de pre-commit"
+# Hook estendido: bash -n, shellcheck, docs.sh e os testes isolados (lista em testes/isolados.txt).
+tem_re .githooks/pre-commit '^  bash -n "\$s"' "hook confere a sintaxe com bash -n"
+tem_re .githooks/pre-commit '^  shellcheck -x ' "hook roda o shellcheck"
+tem_re .githooks/pre-commit '^done <testes/isolados\.txt' "hook lê a lista de testes isolados"
+tem README.md '`bash -n`' "README: etapa 1 do hook (bash -n)"
+tem README.md '`shellcheck`' "README: etapa 2 do hook (shellcheck)"
+tem README.md 'testes/isolados.txt' "README: onde fica a lista de testes isolados"
+if [ -f testes/isolados.txt ]; then
+  while IFS= read -r teste; do
+    [ -n "$teste" ] || continue
+    if [ -x "$teste" ]; then echo "ok    teste isolado $teste existe e é executável"; else echo "FALHA teste isolado $teste não existe ou não é executável"; falhas=$((falhas + 1)); fi
+    tem README.md "$teste" "README lista o teste isolado $teste"
+  done <testes/isolados.txt
+else
+  echo "FALHA testes/isolados.txt não existe"; falhas=$((falhas + 1))
+fi
 exit $((falhas > 0))

@@ -486,9 +486,18 @@ Sem subir nada, `testes/docs.sh` confere os pontos do README.
 
 ## Hook de pre-commit
 
-O repositório traz um hook versionado em `.githooks/pre-commit`. Ele roda só o
-`testes/docs.sh` (segundos, sem subir contêiner); o smoke fica de fora. Se o
-`docs.sh` falhar, o commit é recusado e a saída mostra quais checagens falharam.
+O repositório traz um hook versionado em `.githooks/pre-commit`. Roda em
+segundos, sem subir contêiner (o smoke fica de fora), nesta ordem:
+
+1. `bash -n` nos scripts `.sh` versionados;
+2. `shellcheck` nesses scripts (se não estiver instalado, o hook avisa que
+   pulou a etapa e segue);
+3. `testes/docs.sh`;
+4. os testes isolados listados em `testes/isolados.txt` (hoje
+   `testes/grafana-api.sh`; sem docker nem portas fixas). Teste isolado novo
+   entra nessa lista e na lista acima, e o `docs.sh` cobra o README.
+
+Falhou uma etapa, o commit é recusado e a saída diz qual.
 
 Ative uma vez por clone:
 
@@ -496,8 +505,8 @@ Ative uma vez por clone:
 git config core.hooksPath .githooks
 ```
 
-Antes de commitar, rode o mesmo à mão: `testes/docs.sh`. Numa emergência, pule o
-hook com `git commit --no-verify`.
+Antes de commitar, rode as mesmas etapas à mão (ou `.githooks/pre-commit`).
+Numa emergência, pule o hook com `git commit --no-verify`.
 
 ## Fixar e atualizar as versões
 

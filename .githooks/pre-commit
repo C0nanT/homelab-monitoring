@@ -1,10 +1,41 @@
 #!/usr/bin/env bash
-# Hook de pre-commit: roda só o testes/docs.sh (rápido, sem contêineres).
+# Hook de pre-commit, em segundos e sem contêineres. Etapas, nesta ordem:
+#   1. bash -n nos scripts .sh versionados e neste hook;
+#   2. shellcheck nesses scripts (pulado, com aviso, se não estiver instalado);
+#   3. testes/docs.sh;
+#   4. os testes isolados listados em testes/isolados.txt.
 # Ativar uma vez por clone: git config core.hooksPath .githooks
 # Pular numa emergência: git commit --no-verify
 set -u
 cd "$(git rev-parse --show-toplevel)" || exit 1
-if ! testes/docs.sh; then
-  echo "pre-commit: testes/docs.sh falhou; commit recusado (veja as linhas FALHA acima)." >&2
+
+recusar() { # etapa
+  echo "pre-commit: etapa '$1' falhou; commit recusado (veja a saída acima)." >&2
   exit 1
+}
+
+mapfile -t scripts < <(git ls-files '*.sh')
+scripts+=(.githooks/pre-commit)
+
+echo "pre-commit [1/4] bash -n"
+for s in "${scripts[@]}"; do
+  bash -n "$s" || recusar "bash -n ($s)"
+done
+
+echo "pre-commit [2/4] shellcheck"
+if command -v shellcheck >/dev/null 2>&1; then
+  shellcheck -x "${scripts[@]}" || recusar "shellcheck"
+else
+  echo "pre-commit: shellcheck não instalado; etapa pulada." >&2
 fi
+
+echo "pre-commit [3/4] testes/docs.sh"
+if ! testes/docs.sh; then
+  recusar "testes/docs.sh (veja as linhas FALHA)"
+fi
+
+echo "pre-commit [4/4] testes isolados"
+while IFS= read -r teste; do
+  [ -n "$teste" ] || continue
+  "$teste" </dev/null || recusar "$teste"
+done <testes/isolados.txt
