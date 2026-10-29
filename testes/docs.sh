@@ -168,4 +168,11 @@ tem testes/smoke.sh 'PORTA_PROMETHEUS' "smoke.sh: aviso do topo diz como trocar 
 # Smoke: o ambiente manda no smoke.env, que só dá os padrões.
 tem README.md 'o ambiente tem prioridade sobre o `testes/smoke.env`' "README: ambiente tem prioridade sobre o smoke.env"
 tem testes/smoke.sh 'o ambiente tem prioridade sobre o smoke.env' "smoke.sh: cabeçalho diz que o ambiente tem prioridade"
+# Hook de pre-commit versionado: roda o docs.sh e é ativado por core.hooksPath.
+if [ -x .githooks/pre-commit ]; then echo "ok    hook .githooks/pre-commit existe e é executável"; else echo "FALHA .githooks/pre-commit não existe ou não é executável"; falhas=$((falhas + 1)); fi
+tem_re .githooks/pre-commit '^if ! testes/docs\.sh' "hook chama o docs.sh"
+nao_tem .githooks/pre-commit 'smoke.sh' "hook não roda o smoke"
+tem README.md 'git config core.hooksPath .githooks' "README: comando que ativa o hook"
+tem README.md '--no-verify' "README: como pular o hook numa emergência"
+tem README.md 'Hook de pre-commit' "README tem a seção do hook de pre-commit"
 exit $((falhas > 0))

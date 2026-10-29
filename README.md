@@ -484,6 +484,21 @@ Para estender (as próximas etapas): uma verificação nova é um arquivo
 `testes/compose/NN-nome.yml`. Detalhes no cabeçalho do `testes/smoke.sh`.
 Sem subir nada, `testes/docs.sh` confere os pontos do README.
 
+## Hook de pre-commit
+
+O repositório traz um hook versionado em `.githooks/pre-commit`. Ele roda só o
+`testes/docs.sh` (segundos, sem subir contêiner); o smoke fica de fora. Se o
+`docs.sh` falhar, o commit é recusado e a saída mostra quais checagens falharam.
+
+Ative uma vez por clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Antes de commitar, rode o mesmo à mão: `testes/docs.sh`. Numa emergência, pule o
+hook com `git commit --no-verify`.
+
 ## Fixar e atualizar as versões
 
 As imagens estão **fixadas**, nunca `latest`: nada muda sozinho. Cada tag

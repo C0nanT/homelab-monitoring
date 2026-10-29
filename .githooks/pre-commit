@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Hook de pre-commit: roda só o testes/docs.sh (rápido, sem contêineres).
+# Ativar uma vez por clone: git config core.hooksPath .githooks
+# Pular numa emergência: git commit --no-verify
+set -u
+cd "$(git rev-parse --show-toplevel)" || exit 1
+if ! testes/docs.sh; then
+  echo "pre-commit: testes/docs.sh falhou; commit recusado (veja as linhas FALHA acima)." >&2
+  exit 1
+fi
