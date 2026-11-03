@@ -10,26 +10,42 @@
 # Veja "Fixar e atualizar as versões" no README antes de trocar uma tag.
 #
 # Verificação rápida sem subir nada: docker compose config -q
+#
+# Tetos de memória (mem_limit): todo serviço tem um, para um deles não comer a
+# RAM do PC. Critério: uso estável abaixo de ~70% do teto (docker stats
+# --no-stream, container com 1-2 min no ar). Regra: teto >= medido / 0,7,
+# arredondado para um valor redondo; para os serviços pequenos (blackbox,
+# tunel) vale um piso de folga, bem acima disso. Se o uso passar de 70%, o
+# teto sobe. Medido na pilha real:
+#   grafana ~255-264 MiB com as chaves de leveza (era 763 MiB sem elas, depois
+#   de dias no ar)
+#   prometheus ~41-62 MiB | blackbox ~15-24 MiB | tunel ~2-3 MiB
+# Estourar o teto = o kernel mata o processo (OOM) e o restart sobe de novo.
 name: homelab-monitoring
 
 services:
   prometheus:
     image: prom/prometheus:v3.15.0
     restart: unless-stopped
+    # 256m: ~62 MiB medido (24%); folga para o histórico (90d/2GB) crescer.
+    mem_limit: 256m
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      # Retenção por tempo: 90 dias de histórico.
+      # Dois tetos no histórico, o que vier primeiro corta: 90 dias de tempo e
+      # 2 GB de disco. O teto de disco impede o volume de crescer sem limite
+      # num PC 24/7.
       - --storage.tsdb.retention.time=90d
+      - --storage.tsdb.retention.size=2GB
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       # Monta a PASTA (não o arquivo): o Prometheus relê os alvos sozinho
       # quando algo muda, sem reiniciar. Adicionar site = editar sites.yml.
       - ./prometheus/alvos:/etc/prometheus/alvos:ro
       - prometheus-dados:/prometheus
-    ports:
-      # Só no loopback do PC: o Prometheus não tem autenticação.
-      - "127.0.0.1:${PORTA_PROMETHEUS:-9090}:9090"
+    # Sem "ports": o Prometheus não tem autenticação e a 9090 é de outros
+    # projetos. Só a rede interna da pilha o alcança (o Grafana lê
+    # prometheus:9090). Para consultar: "Consultar o Prometheus" no README.
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
       interval: 10s
@@ -48,6 +64,8 @@ services:
   blackbox:
     image: prom/blackbox-exporter:v0.29.0
     restart: unless-stopped
+    # 64m: ~12-24 MiB medido (até 37%).
+    mem_limit: 64m
     command:
       - --config.file=/etc/blackbox/blackbox.yml
     volumes:
@@ -74,6 +92,8 @@ services:
   tunel:
     build: ./tunel
     restart: unless-stopped
+    # 32m: ~3 MiB medido (autossh + nc); sobra muito.
+    mem_limit: 32m
     environment:
       # Do .env. Vazio = o container sai com erro explicando o que falta.
       TUNEL_HOST: ${TUNEL_HOST:-}
@@ -106,6 +126,10 @@ services:
   grafana:
     image: grafana/grafana:13.2.4
     restart: unless-stopped
+    # 512m: o Grafana enxuto usa ~260 MiB na pilha real (~51%). Sem as chaves
+    # de leveza ele chegou a 763 MiB depois de dias no ar: se o docker stats
+    # passar de ~360 MiB (70%) ou aparecer OOM, suba o teto.
+    mem_limit: 512m
     environment:
       GF_SECURITY_ADMIN_USER: admin
       # Obrigatória no .env: sem ela o compose nem sobe (nada de admin/admin).
@@ -113,6 +137,15 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      # Mais leve (Grafana local, um usuário):
+      # não baixa plugins na subida.
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      # não checa atualização dos plugins.
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      # não busca notícias.
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      # não publica snapshots fora.
+      GF_SNAPSHOTS_EXTERNAL_ENABLED: "false"
       # Alertas no Telegram: o Grafana troca $TELEGRAM_* nos
       # arquivos de grafana/provisioning/alerting/. Token e chat ID só no .env.
       # Os limites ficam em regras.yml (o Grafana não troca env nas regras).
@@ -126,8 +159,9 @@ services:
       # JSONs dos painéis, versionados no repositório.
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      # Só no loopback do PC; acesso de fora, só por túnel SSH/VPN.
-      - "127.0.0.1:${PORTA_GRAFANA:-3000}:3000"
+      # Só no loopback do PC; acesso de fora, só por túnel SSH/VPN. 23000 e não
+      # 3000: a pilha fica de pé o tempo todo e a 3000 é de outros projetos.
+      - "127.0.0.1:${PORTA_GRAFANA:-23000}:3000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
       interval: 10s

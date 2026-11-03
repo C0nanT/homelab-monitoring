@@ -36,7 +36,7 @@ tem README.md 'Fixar e atualizar as versões' "README tem roteiro de atualizaç�
 tem README.md 'Adicionar um site' "README explica como adicionar um site"
 tem README.md 'testes/smoke.sh' "README explica o smoke test"
 tem README.md 'Roteiro' "README tem o roteiro de versões"
-tem .env.example 'PORTA_PROMETHEUS' ".env.example documenta as variáveis"
+nao_tem .env.example 'PORTA_PROMETHEUS' ".env.example: Prometheus não tem porta no host"
 tem .gitignore '.env' ".gitignore ignora .env"
 tem .gitignore 'chaves/*' ".gitignore ignora a pasta de chaves"
 tem README.md 'Túnel até a VPS' "README tem a seção do túnel"
@@ -157,6 +157,20 @@ tem README.md '### Tirar uma regra' "README: seção para tirar uma regra dos al
 tem README.md 'não a apaga do Grafana' "README: tirar a regra do arquivo não a apaga do Grafana"
 tem README.md 'deleteRules:' "README: bloco deleteRules de exemplo"
 tem README.md 'Depois do restart, tire o `deleteRules` do arquivo' "README: remover o deleteRules depois de aplicar"
+# Grafana real na 23000: a 3000 fica livre para outros projetos.
+tem README.md '127.0.0.1:23000' "README: Grafana da pilha real na 23000"
+tem README.md 'faixa 2xxxx' "README: faixas de porta da pilha real e do smoke"
+tem .env.example 'PORTA_GRAFANA=23000' ".env.example: porta padrão do Grafana é 23000"
+# Teto de disco do Prometheus: 2 GB ou 90 dias, o que vier primeiro.
+tem docker-compose.yml '--storage.tsdb.retention.size=2GB' "compose: teto de 2 GB no histórico do Prometheus"
+tem README.md 'ou ao passar de 2 GB, o que vier primeiro' "README: o histórico corta aos 90 dias ou aos 2 GB"
+nao_tem README.md '127.0.0.1:3000' "README: sem Grafana na 3000 do host"
+nao_tem .env.example '127.0.0.1:3000' ".env.example: sem Grafana na 3000 do host"
+# Prometheus sem porta no host: consulta por dentro do container.
+nao_tem README.md '127.0.0.1:9090' "README: sem Prometheus na 9090 do host"
+tem README.md "docker compose exec prometheus wget -qO- 'http://localhost:9090/api/v1/query?query=up'" "README: consulta o Prometheus via docker compose exec"
+tem README.md '*Explore*, fonte de dados Prometheus, consulta `up`' "README: alternativa dos targets pelo Explore do Grafana"
+tem testes/compose/02-prometheus-porta.yml '127.0.0.1:${PORTA_PROMETHEUS' "smoke: override publica o Prometheus só no loopback"
 # Smoke em portas próprias: convive com a pilha real.
 tem README.md '127.0.0.1:19090' "README: smoke usa a porta 19090 do Prometheus"
 tem README.md '127.0.0.1:13000' "README: smoke usa a porta 13000 do Grafana"
@@ -182,6 +196,23 @@ tem_re .githooks/pre-commit '^done <testes/isolados\.txt' "hook lê a lista de t
 tem README.md '`bash -n`' "README: etapa 1 do hook (bash -n)"
 tem README.md '`shellcheck`' "README: etapa 2 do hook (shellcheck)"
 tem README.md 'testes/isolados.txt' "README: onde fica a lista de testes isolados"
+# Tetos de memória: todo serviço da pilha tem mem_limit (a conta do compose, sem subir nada).
+# O compose normaliza mem_limit para bytes; o smoke confere o mesmo no contêiner (08-memoria.sh).
+if command -v docker >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  # Config que falha (ou sem serviço algum) é FALHA, nunca "ok" por saída vazia.
+  if ! cfg="$(docker compose --env-file testes/smoke.env -f docker-compose.yml config --format json 2>&1)"; then
+    echo "FALHA docker compose config falhou; mem_limit não conferido"; falhas=$((falhas + 1))
+  elif ! n_servicos="$(printf '%s' "$cfg" | jq -e '.services|length' 2>/dev/null)" || [ "$n_servicos" -le 0 ]; then
+    echo "FALHA docker compose config não trouxe serviço algum; mem_limit não conferido"; falhas=$((falhas + 1))
+  else
+    sem_teto="$(printf '%s' "$cfg" | jq -r '.services|to_entries[]|select((.value.mem_limit // 0|tonumber) <= 0)|.key' | paste -sd, -)"
+    if [ -z "$sem_teto" ]; then echo "ok    todo serviço do compose tem mem_limit"; else echo "FALHA serviço(s) sem mem_limit no compose: $sem_teto"; falhas=$((falhas + 1)); fi
+  fi
+else
+  echo "AVISO docker ou jq ausente; conferência dos mem_limit pulada"
+fi
+tem docker-compose.yml 'abaixo de ~70%' "compose: comentário do critério dos tetos de memória"
+tem testes/verificacoes/08-memoria.sh 'HostConfig.Memory' "smoke confere o teto de memória de cada serviço"
 if [ -f testes/isolados.txt ]; then
   while IFS= read -r teste; do
     [ -n "$teste" ] || continue

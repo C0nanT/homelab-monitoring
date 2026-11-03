@@ -4,7 +4,7 @@
 # testes/verificacoes/. Não execute diretamente.
 #
 # Variáveis esperadas (definidas pelo smoke.sh):
-#   PROM_URL   endereço do Prometheus no loopback (ex.: http://127.0.0.1:9090)
+#   PROM_URL   endereço do Prometheus no loopback (ex.: http://127.0.0.1:19090, publicado só no smoke)
 
 FALHAS=0
 SUCESSOS=0
@@ -74,4 +74,10 @@ afirmar_probe() {
     falha "$desc" "probe_success de $alvo esperado: $esperado; recebido: '${valor:-nenhum}'"
     return 1
   fi
+}
+
+# compose_base_json -> imprime o JSON do compose da raiz sem overrides (o da pilha real).
+# Precisa de RAIZ (definida pelo smoke.sh).
+compose_base_json() {
+  docker compose --env-file "$RAIZ/testes/smoke.env" -f "$RAIZ/docker-compose.yml" config --format json
 }

@@ -14,9 +14,9 @@ sites.
 │  blackbox ──────────────────────────────────────►  sites (HTTPS público)
 │     ▲                                 │
 │     │ /probe                          │
-│  prometheus ── 127.0.0.1:9090 (só o PC)
+│  prometheus ── sem porta no host (só a rede da pilha)
 │     ▲                                 │
-│  grafana ── 127.0.0.1:3000 (só o PC)  │
+│  grafana ── 127.0.0.1:23000 (só o PC) │
 │     │                                 │
 │     └─► tunel (autossh) ═══ SSH ═══════════════►  loopback da VPS
 │         tunel:8082, :9100, :3100      │            127.0.0.1:8082 Traefik
@@ -32,11 +32,11 @@ sites.
   usuário `metricas`) as traz para a rede interna da pilha, onde o Prometheus
   coleta os jobs `traefik` e `node` e o Grafana consulta o Loki. Nenhuma porta nova é aberta na VPS nem
   publicada no PC.
-- **Grafana** (`127.0.0.1:3000`): já abre com a fonte de dados Prometheus e
+- **Grafana** (`127.0.0.1:23000`): já abre com a fonte de dados Prometheus e
   três painéis (Traefik, Node Exporter Full e Sites), tudo provisionado por
   arquivo (veja "Grafana").
-- O Prometheus escuta **só em `127.0.0.1:9090`** (não tem autenticação) e
-  guarda **90 dias** de histórico num volume nomeado.
+- O Prometheus **não publica porta no host** (não tem autenticação): só a
+  rede interna da pilha o alcança (o Grafana lê `prometheus:9090`). Guarda **90 dias** de histórico (com teto de **2 GB**) num volume nomeado.
 
 > **Aviso: o uptime medido aqui só vale com o PC ligado.** Se o PC dorme,
 > desliga ou perde a internet, a pilha para de coletar e de avisar, e isso
@@ -61,16 +61,28 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Grafana em <http://127.0.0.1:3000> (usuário `admin`, senha
-`GRAFANA_SENHA_ADMIN` do `.env`). Prometheus em <http://127.0.0.1:9090>. Para
-ver os alvos: *Status → Targets* (`sites`, `traefik` e `node`), ou a consulta
-`probe_success`. Verificação rápida sem subir nada: `docker compose config -q`
+Grafana em <http://127.0.0.1:23000> (usuário `admin`, senha
+`GRAFANA_SENHA_ADMIN` do `.env`). O Prometheus não tem porta no host: para
+ver os alvos e as métricas, veja "Consultar o Prometheus" abaixo. Verificação rápida sem subir nada: `docker compose config -q`
 (com o `.env` preenchido: sem `GRAFANA_SENHA_ADMIN` o compose recusa subir,
 de propósito).
 
 Os dados ficam no volume `prometheus-dados` e sobrevivem a
 `docker compose down`. **Não use `down -v`** fora do smoke test: apaga o
-histórico.
+histórico. O histórico é cortado aos 90 dias ou ao passar de 2 GB, o que vier primeiro.
+
+## Consultar o Prometheus
+
+O Prometheus não tem porta no host. Para debug (alvos, `up`, uma métrica),
+consulte por dentro do container:
+
+```bash
+docker compose exec prometheus wget -qO- 'http://localhost:9090/api/v1/query?query=up'
+```
+
+`up` vale `1` por alvo coletado (jobs `sites`, `traefik` e `node`). Como
+alternativa, no Grafana: *Explore*, fonte de dados Prometheus, consulta `up`
+ou `probe_success`.
 
 ## Túnel até a VPS
 
@@ -131,9 +143,8 @@ métricas junto): libere a porta na VPS **antes** de subir esta versão no PC.
    docker compose up -d --build
    docker compose logs tunel     # erros de chave/known_hosts aparecem aqui
    ```
-   Em *Status → Targets*, `traefik` (`tunel:8082`) e `node` (`tunel:9100`)
-   devem ficar `UP`. Ou pela API:
-   `curl -s 'http://127.0.0.1:9090/api/v1/query?query=up' | jq`.
+   Os alvos `traefik` (`tunel:8082`) e `node` (`tunel:9100`) devem ficar `UP`
+   (veja "Consultar o Prometheus").
 
 `chaves/` está no `.gitignore` (menos o `.gitkeep`) e é montada só leitura
 no container. Com o túnel fora, a pilha continua testando os sites; só os
@@ -154,10 +165,13 @@ Tudo é provisionado por arquivo e versionado: recriar o Grafana do zero
 | Painéis (JSON) | `grafana/dashboards/` |
 | Alertas (contact point, política, regras) | `grafana/provisioning/alerting/` (veja "Alertas no Telegram") |
 
-- **Acesso**: só em `127.0.0.1:3000` (porta em `PORTA_GRAFANA`), usuário
+- **Acesso**: só em `127.0.0.1:23000` (porta em `PORTA_GRAFANA`), usuário
   `admin` e a senha `GRAFANA_SENHA_ADMIN` do `.env`; sem ela o compose não
   sobe (não existe `admin/admin`). Cadastro de usuários e telemetria
   desligados. Para ver de outro aparelho, use túnel SSH, não abra a porta.
+- **Portas do host**: a pilha real usa a faixa 2xxxx e o smoke a 1xxxx, longe
+  das portas padrão (3000, 9090...) de outros projetos rodando junto. O
+  Prometheus da pilha real não usa porta nenhuma do host.
 - **Traefik** (`traefik.json`): requisições, 5xx e latência por serviço,
   conexões, mais, no topo, a taxa de 5xx por serviço e a tabela de dias até
   vencer cada certificado (`traefik_tls_certs_not_after`).
@@ -320,7 +334,7 @@ alertar por um serviço quase parado em que 1 erro em 3 pedidos dá 33% de 5xx.
 
 ### Mandar um alerta de teste
 
-No Grafana (`http://127.0.0.1:3000`): *Alerting → Contact points → telegram →
+No Grafana (`http://127.0.0.1:23000`): *Alerting → Contact points → telegram →
 Test* (botão "Test"/"Send test notification"). Chegando a mensagem no
 Telegram, o bot, o token e o chat ID estão certos. Se não chegar:
 `docker compose logs grafana | grep -i telegram` (token errado dá `401`/`404`;
@@ -405,9 +419,9 @@ até a VPS", abaixo; gere-a antes.
 Não é automatizado: rode depois de colocar no ar e sempre que mexer na VPS,
 no túnel ou no bot.
 
-- [ ] **Túnel real com os alvos `up`.** Em *Status → Targets*
-  (<http://127.0.0.1:9090/targets>), os jobs `sites`, `traefik` e `node`
-  estão `UP`; nos painéis Traefik, Node Exporter Full e Sites aparecem dados
+- [ ] **Túnel real com os alvos `up`.** A consulta `up` (veja
+  "Consultar o Prometheus") mostra os jobs `sites`, `traefik` e `node` com
+  valor `1`; nos painéis Traefik, Node Exporter Full e Sites aparecem dados
   reais da VPS.
 - [ ] **A fonte de dados Loki responde.** Em *Connections → Data sources →
   Loki → Test* (ou *Explore* com a fonte Loki), o teste dá verde e
@@ -467,7 +481,9 @@ com o Loki parado, o resto da pilha continua de pé); nos
 alertas, que as regras existem pela API, que o contact point e a política
 estão certos, que o certificado de 10 dias dispara e que a regra de 5xx
 entra em contagem para o serviço de tráfego alto mas não para o de tráfego
-quase zero. Nenhuma mensagem real é enviada (token falso e
+quase zero; e que todo serviço da pilha tem teto de memória (`mem_limit`,
+critério no topo do `docker-compose.yml`) e nenhum foi morto por falta de
+memória. Nenhuma mensagem real é enviada (token falso e
 `api.telegram.org` apontado para `127.0.0.1` só no smoke). Derruba tudo
 no final, mesmo com falha. Usa o projeto
 `homelab-smoke`, `127.0.0.1:19090` (Prometheus) e `127.0.0.1:13000`

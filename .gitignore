@@ -2,3 +2,6 @@
 # Chaves SSH do túnel (privadas!) e known_hosts da VPS: nunca versionar.
 chaves/*
 !chaves/.gitkeep
+
+# Relatório da revisão de logs: traz IPs completos e achados de segurança, nunca versionar.
+revisoes/
