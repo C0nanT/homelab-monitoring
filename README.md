@@ -69,7 +69,7 @@ de propósito).
 
 Os dados ficam no volume `prometheus-dados` e sobrevivem a
 `docker compose down`. **Não use `down -v`** fora do smoke test: apaga o
-histórico.
+histórico. O histórico é cortado aos 90 dias ou ao passar de 2 GB, o que vier primeiro.
 
 ## Consultar o Prometheus
 

@@ -161,6 +161,9 @@ tem README.md 'Depois do restart, tire o `deleteRules` do arquivo' "README: remo
 tem README.md '127.0.0.1:23000' "README: Grafana da pilha real na 23000"
 tem README.md 'faixa 2xxxx' "README: faixas de porta da pilha real e do smoke"
 tem .env.example 'PORTA_GRAFANA=23000' ".env.example: porta padrão do Grafana é 23000"
+# Teto de disco do Prometheus: 2 GB ou 90 dias, o que vier primeiro.
+tem docker-compose.yml '--storage.tsdb.retention.size=2GB' "compose: teto de 2 GB no histórico do Prometheus"
+tem README.md 'ou ao passar de 2 GB, o que vier primeiro' "README: o histórico corta aos 90 dias ou aos 2 GB"
 nao_tem README.md '127.0.0.1:3000' "README: sem Grafana na 3000 do host"
 nao_tem .env.example '127.0.0.1:3000' ".env.example: sem Grafana na 3000 do host"
 # Prometheus sem porta no host: consulta por dentro do container.
