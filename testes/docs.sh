@@ -196,6 +196,17 @@ tem_re .githooks/pre-commit '^done <testes/isolados\.txt' "hook lê a lista de t
 tem README.md '`bash -n`' "README: etapa 1 do hook (bash -n)"
 tem README.md '`shellcheck`' "README: etapa 2 do hook (shellcheck)"
 tem README.md 'testes/isolados.txt' "README: onde fica a lista de testes isolados"
+# Tetos de memória: todo serviço da pilha tem mem_limit (a conta do compose, sem subir nada).
+# O compose normaliza mem_limit para bytes; o smoke confere o mesmo no contêiner (08-memoria.sh).
+if command -v docker >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  sem_teto="$(docker compose --env-file testes/smoke.env -f docker-compose.yml config --format json 2>/dev/null |
+    jq -r '.services|to_entries[]|select((.value.mem_limit // 0|tonumber) <= 0)|.key' | paste -sd, -)"
+  if [ -z "$sem_teto" ]; then echo "ok    todo serviço do compose tem mem_limit"; else echo "FALHA serviço(s) sem mem_limit no compose: ${sem_teto:-config inválido}"; falhas=$((falhas + 1)); fi
+else
+  echo "AVISO docker ou jq ausente; conferência dos mem_limit pulada"
+fi
+tem docker-compose.yml 'abaixo de ~70%' "compose: comentário do critério dos tetos de memória"
+tem testes/verificacoes/08-memoria.sh 'HostConfig.Memory' "smoke confere o teto de memória de cada serviço"
 if [ -f testes/isolados.txt ]; then
   while IFS= read -r teste; do
     [ -n "$teste" ] || continue

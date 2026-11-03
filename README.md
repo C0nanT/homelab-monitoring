@@ -481,7 +481,9 @@ com o Loki parado, o resto da pilha continua de pé); nos
 alertas, que as regras existem pela API, que o contact point e a política
 estão certos, que o certificado de 10 dias dispara e que a regra de 5xx
 entra em contagem para o serviço de tráfego alto mas não para o de tráfego
-quase zero. Nenhuma mensagem real é enviada (token falso e
+quase zero; e que todo serviço da pilha tem teto de memória (`mem_limit`,
+critério no topo do `docker-compose.yml`) e nenhum foi morto por falta de
+memória. Nenhuma mensagem real é enviada (token falso e
 `api.telegram.org` apontado para `127.0.0.1` só no smoke). Derruba tudo
 no final, mesmo com falha. Usa o projeto
 `homelab-smoke`, `127.0.0.1:19090` (Prometheus) e `127.0.0.1:13000`
