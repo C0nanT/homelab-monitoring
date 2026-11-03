@@ -16,7 +16,7 @@ sites.
 │     │ /probe                          │
 │  prometheus ── 127.0.0.1:9090 (só o PC)
 │     ▲                                 │
-│  grafana ── 127.0.0.1:3000 (só o PC)  │
+│  grafana ── 127.0.0.1:23000 (só o PC) │
 │     │                                 │
 │     └─► tunel (autossh) ═══ SSH ═══════════════►  loopback da VPS
 │         tunel:8082, :9100, :3100      │            127.0.0.1:8082 Traefik
@@ -32,7 +32,7 @@ sites.
   usuário `metricas`) as traz para a rede interna da pilha, onde o Prometheus
   coleta os jobs `traefik` e `node` e o Grafana consulta o Loki. Nenhuma porta nova é aberta na VPS nem
   publicada no PC.
-- **Grafana** (`127.0.0.1:3000`): já abre com a fonte de dados Prometheus e
+- **Grafana** (`127.0.0.1:23000`): já abre com a fonte de dados Prometheus e
   três painéis (Traefik, Node Exporter Full e Sites), tudo provisionado por
   arquivo (veja "Grafana").
 - O Prometheus escuta **só em `127.0.0.1:9090`** (não tem autenticação) e
@@ -61,7 +61,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Grafana em <http://127.0.0.1:3000> (usuário `admin`, senha
+Grafana em <http://127.0.0.1:23000> (usuário `admin`, senha
 `GRAFANA_SENHA_ADMIN` do `.env`). Prometheus em <http://127.0.0.1:9090>. Para
 ver os alvos: *Status → Targets* (`sites`, `traefik` e `node`), ou a consulta
 `probe_success`. Verificação rápida sem subir nada: `docker compose config -q`
@@ -154,10 +154,12 @@ Tudo é provisionado por arquivo e versionado: recriar o Grafana do zero
 | Painéis (JSON) | `grafana/dashboards/` |
 | Alertas (contact point, política, regras) | `grafana/provisioning/alerting/` (veja "Alertas no Telegram") |
 
-- **Acesso**: só em `127.0.0.1:3000` (porta em `PORTA_GRAFANA`), usuário
+- **Acesso**: só em `127.0.0.1:23000` (porta em `PORTA_GRAFANA`), usuário
   `admin` e a senha `GRAFANA_SENHA_ADMIN` do `.env`; sem ela o compose não
   sobe (não existe `admin/admin`). Cadastro de usuários e telemetria
   desligados. Para ver de outro aparelho, use túnel SSH, não abra a porta.
+- **Portas do host**: a pilha real usa a faixa 2xxxx e o smoke a 1xxxx, longe
+  das portas padrão (3000, 9090...) de outros projetos rodando junto.
 - **Traefik** (`traefik.json`): requisições, 5xx e latência por serviço,
   conexões, mais, no topo, a taxa de 5xx por serviço e a tabela de dias até
   vencer cada certificado (`traefik_tls_certs_not_after`).
@@ -320,7 +322,7 @@ alertar por um serviço quase parado em que 1 erro em 3 pedidos dá 33% de 5xx.
 
 ### Mandar um alerta de teste
 
-No Grafana (`http://127.0.0.1:3000`): *Alerting → Contact points → telegram →
+No Grafana (`http://127.0.0.1:23000`): *Alerting → Contact points → telegram →
 Test* (botão "Test"/"Send test notification"). Chegando a mensagem no
 Telegram, o bot, o token e o chat ID estão certos. Se não chegar:
 `docker compose logs grafana | grep -i telegram` (token errado dá `401`/`404`;

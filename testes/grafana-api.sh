@@ -108,6 +108,12 @@ confere "ruído do curl: stdout é só o JSON" GET "$(jq -r .metodo "$TMP/out" 2
 ! grep -q 'ruido' "$TMP/out"
 confere "ruído do curl: nada do stderr no stdout" 0 $?
 
+# 9. Sem PORTA_GRAFANA nem GRAFANA_URL: porta padrão 23000 no loopback
+printf 'GRAFANA_SENHA_ADMIN=s\n' >"$TMP/repo/.env"
+printf '#!/bin/sh\nfor a; do last="$a"; done\necho "$last" >"%s/url"\nexit 7\n' "$TMP" >"$TMP/shim/curl"
+env -u GRAFANA_URL -u PORTA_GRAFANA PATH="$TMP/shim:$PATH" "$S" GET /api/padrao >/dev/null 2>&1
+confere "sem porta: usa 127.0.0.1:23000" "http://127.0.0.1:23000/api/padrao" "$(cat "$TMP/url" 2>/dev/null)"
+
 # senha ausente: erro claro, sem chamar a API
 rm "$TMP/repo/.env"
 env -u GRAFANA_SENHA_ADMIN "$S" GET /api/x >/dev/null 2>"$TMP/err"; cod=$?

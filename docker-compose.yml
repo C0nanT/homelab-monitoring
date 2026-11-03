@@ -126,8 +126,9 @@ services:
       # JSONs dos painéis, versionados no repositório.
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      # Só no loopback do PC; acesso de fora, só por túnel SSH/VPN.
-      - "127.0.0.1:${PORTA_GRAFANA:-3000}:3000"
+      # Só no loopback do PC; acesso de fora, só por túnel SSH/VPN. 23000 e não
+      # 3000: a pilha fica de pé o tempo todo e a 3000 é de outros projetos.
+      - "127.0.0.1:${PORTA_GRAFANA:-23000}:3000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
       interval: 10s

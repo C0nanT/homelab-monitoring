@@ -6,9 +6,9 @@
 # Ex.:   ./grafana-api.sh GET /api/v1/provisioning/alert-rules | jq length
 #
 # Sem variáveis, fala com a pilha real: lê GRAFANA_SENHA_ADMIN e PORTA_GRAFANA
-# do .env desta pasta (porta padrão 3000, no loopback). Para falar com outra
+# do .env desta pasta (porta padrão 23000, no loopback). Para falar com outra
 # pilha (é o que o smoke faz), defina no ambiente:
-#   GRAFANA_URL            endereço (ex.: http://127.0.0.1:3000)
+#   GRAFANA_URL            endereço (ex.: http://127.0.0.1:13000)
 #   GRAFANA_SENHA_ADMIN    senha do usuário admin
 # Resposta não 2xx: sai com 1 mostrando o código HTTP e o corpo no stderr.
 # A senha nunca vai na linha de comando do curl nem em nenhuma saída.
@@ -38,7 +38,7 @@ fi
 url="${GRAFANA_URL:-http://127.0.0.1:${PORTA_GRAFANA:-$(valor_env PORTA_GRAFANA)}}"
 url="${url%/}"
 case "$url" in
-  *:) url="${url}3000" ;; # PORTA_GRAFANA vazia -> porta padrão
+  *:) url="${url}23000" ;; # PORTA_GRAFANA vazia -> porta padrão
 esac
 
 # Corpo: argumento, ou entrada padrão (só quando não for terminal).

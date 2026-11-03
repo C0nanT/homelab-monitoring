@@ -157,6 +157,12 @@ tem README.md '### Tirar uma regra' "README: seção para tirar uma regra dos al
 tem README.md 'não a apaga do Grafana' "README: tirar a regra do arquivo não a apaga do Grafana"
 tem README.md 'deleteRules:' "README: bloco deleteRules de exemplo"
 tem README.md 'Depois do restart, tire o `deleteRules` do arquivo' "README: remover o deleteRules depois de aplicar"
+# Grafana real na 23000: a 3000 fica livre para outros projetos.
+tem README.md '127.0.0.1:23000' "README: Grafana da pilha real na 23000"
+tem README.md 'faixa 2xxxx' "README: faixas de porta da pilha real e do smoke"
+tem .env.example 'PORTA_GRAFANA=23000' ".env.example: porta padrão do Grafana é 23000"
+nao_tem README.md '127.0.0.1:3000' "README: sem Grafana na 3000 do host"
+nao_tem .env.example '127.0.0.1:3000' ".env.example: sem Grafana na 3000 do host"
 # Smoke em portas próprias: convive com a pilha real.
 tem README.md '127.0.0.1:19090' "README: smoke usa a porta 19090 do Prometheus"
 tem README.md '127.0.0.1:13000' "README: smoke usa a porta 13000 do Grafana"
