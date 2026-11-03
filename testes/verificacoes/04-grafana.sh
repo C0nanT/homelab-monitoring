@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Carregado pelo testes/smoke.sh; usa as funções de testes/lib.sh.
-# Grafana provisionado: saudável, só no loopback, exige a senha do .env, fonte
+# Grafana provisionado: saudável, só no loopback, recursos sem uso desligados, exige a senha do .env, fonte
 # de dados e os 3 painéis existem, e os painéis principais têm dados com o
 # alvo falso (consultas feitas pelo próprio Grafana, em /api/ds/query).
 #
@@ -56,6 +56,18 @@ else
   afirmar "Grafana NÃO responde em $IP_LAN (IP não-loopback do PC)" \
     bash -c '! curl -s --max-time 3 "http://$1:$2/api/health"' _ "$IP_LAN" "$PORTA_GRAFANA"
 fi
+
+secao "Grafana: recursos sem uso desligados"
+
+# O Grafana mostra as settings efetivas em /api/admin/settings (admin). Uma
+# chave GF_* que não existe na versão fixada não aparece aqui nem vale nada.
+SETTINGS_JSON="$("$RAIZ/grafana-api.sh" GET /api/admin/settings || echo '{}')"
+for par in plugins.preinstall_disabled:true analytics.check_for_plugin_updates:false \
+  analytics.check_for_updates:false news.news_feed_enabled:false snapshots.external_enabled:false; do
+  chave="${par%%:*}"
+  afirmar "Grafana: $chave = ${par##*:}" \
+    test "$(jq -r --arg s "${chave%%.*}" --arg k "${chave#*.}" '.[$s][$k]' <<<"$SETTINGS_JSON")" = "${par##*:}"
+done
 
 secao "Grafana: fonte de dados e painéis provisionados"
 

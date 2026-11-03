@@ -113,6 +113,12 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      # Mais leve (Grafana local, um usuário): nada de baixar plugins,
+      # checar atualização deles, buscar notícias ou publicar snapshots fora.
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_SNAPSHOTS_EXTERNAL_ENABLED: "false"
       # Alertas no Telegram: o Grafana troca $TELEGRAM_* nos
       # arquivos de grafana/provisioning/alerting/. Token e chat ID só no .env.
       # Os limites ficam em regras.yml (o Grafana não troca env nas regras).
