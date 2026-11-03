@@ -19,17 +19,20 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      # Retenção por tempo: 90 dias de histórico.
+      # Dois tetos no histórico, o que vier primeiro corta: 90 dias de tempo e
+      # 2 GB de disco. O teto de disco impede o volume de crescer sem limite
+      # num PC 24/7.
       - --storage.tsdb.retention.time=90d
+      - --storage.tsdb.retention.size=2GB
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       # Monta a PASTA (não o arquivo): o Prometheus relê os alvos sozinho
       # quando algo muda, sem reiniciar. Adicionar site = editar sites.yml.
       - ./prometheus/alvos:/etc/prometheus/alvos:ro
       - prometheus-dados:/prometheus
-    ports:
-      # Só no loopback do PC: o Prometheus não tem autenticação.
-      - "127.0.0.1:${PORTA_PROMETHEUS:-9090}:9090"
+    # Sem "ports": o Prometheus não tem autenticação e a 9090 é de outros
+    # projetos. Só a rede interna da pilha o alcança (o Grafana lê
+    # prometheus:9090). Para consultar: "Consultar o Prometheus" no README.
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
       interval: 10s

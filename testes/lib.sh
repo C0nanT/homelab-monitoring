@@ -4,7 +4,7 @@
 # testes/verificacoes/. Não execute diretamente.
 #
 # Variáveis esperadas (definidas pelo smoke.sh):
-#   PROM_URL   endereço do Prometheus no loopback (ex.: http://127.0.0.1:9090)
+#   PROM_URL   endereço do Prometheus no loopback (ex.: http://127.0.0.1:19090, publicado só no smoke)
 
 FALHAS=0
 SUCESSOS=0
