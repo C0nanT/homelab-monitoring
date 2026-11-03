@@ -19,8 +19,11 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      # Retenção por tempo: 90 dias de histórico.
+      # Dois tetos no histórico, o que vier primeiro corta: 90 dias de tempo e
+      # 2 GB de disco. O teto de disco impede o volume de crescer sem limite
+      # num PC 24/7.
       - --storage.tsdb.retention.time=90d
+      - --storage.tsdb.retention.size=2GB
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       # Monta a PASTA (não o arquivo): o Prometheus relê os alvos sozinho
