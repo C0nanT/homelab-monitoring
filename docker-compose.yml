@@ -13,11 +13,12 @@
 #
 # Tetos de memória (mem_limit): todo serviço tem um, para um deles não comer a
 # RAM do PC. Critério: uso estável abaixo de ~70% do teto (docker stats
-# --no-stream, container com 1-2 min no ar). O teto é o valor medido / 0,7,
-# arredondado para cima; se o uso passar de 70%, o teto sobe. Medido com o
-# Grafana já enxuto e o provisionamento do repositório:
-#   grafana ~255-261 MiB recém-subido; ~763 MiB depois de dias no ar, antes das
-#   chaves de leveza (cresce com cache de painéis, alertas e consultas)
+# --no-stream, container com 1-2 min no ar). Regra: teto >= medido / 0,7,
+# arredondado para um valor redondo; para os serviços pequenos (blackbox,
+# tunel) vale um piso de folga, bem acima disso. Se o uso passar de 70%, o
+# teto sobe. Medido na pilha real (Grafana ainda sem as chaves de leveza):
+#   grafana ~255-261 MiB recém-subido; 763 MiB depois de dias no ar (cresce
+#   com cache de painéis, alertas e consultas)
 #   prometheus ~36-62 MiB | blackbox ~12-24 MiB | tunel ~3 MiB
 # Estourar o teto = o kernel mata o processo (OOM) e o restart sobe de novo.
 name: homelab-monitoring
@@ -125,12 +126,12 @@ services:
   grafana:
     image: grafana/grafana:13.2.4
     restart: unless-stopped
-    # 1g (subiu dos 512m do ponto de partida): a pilha real chegou a ~763 MiB,
-    # que em 512m seria OOM e, mesmo em 768m, passaria de 70%. Recém-subido o
-    # Grafana enxuto usa ~260 MiB; 1g mantém o uso real de hoje em ~75% e o
-    # enxuto bem abaixo dos 70%. Medir de novo (docker stats) depois de dias
-    # no ar com as chaves de leveza e baixar o teto se o uso estável permitir.
-    mem_limit: 1g
+    # 1152m (subiu dos 512m do ponto de partida): a pilha real mediu 763 MiB,
+    # que em 512m seria OOM e em 1g ainda daria ~75%. 763/0,7 = 1090 MiB, então
+    # 1152m (~66%). Recém-subido o Grafana enxuto usa ~260 MiB. Medir de novo
+    # (docker stats) depois de dias no ar com as chaves de leveza (gate) e
+    # baixar o teto se o uso estável permitir.
+    mem_limit: 1152m
     environment:
       GF_SECURITY_ADMIN_USER: admin
       # Obrigatória no .env: sem ela o compose nem sobe (nada de admin/admin).
@@ -138,11 +139,14 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
-      # Mais leve (Grafana local, um usuário): nada de baixar plugins,
-      # checar atualização deles, buscar notícias ou publicar snapshots fora.
+      # Mais leve (Grafana local, um usuário):
+      # não baixa plugins na subida.
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      # não checa atualização dos plugins.
       GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      # não busca notícias.
       GF_NEWS_NEWS_FEED_ENABLED: "false"
+      # não publica snapshots fora.
       GF_SNAPSHOTS_EXTERNAL_ENABLED: "false"
       # Alertas no Telegram: o Grafana troca $TELEGRAM_* nos
       # arquivos de grafana/provisioning/alerting/. Token e chat ID só no .env.

@@ -12,10 +12,9 @@ afirmar "porta do smoke publicada apenas em 127.0.0.1" \
   bash -c 'printf "%s\n" "$1" | grep -q "^127\.0\.0\.1:" && ! printf "%s\n" "$1" | grep -qE "^(0\.0\.0\.0|\[::\]|::):"' _ "$PORTAS"
 
 # A pilha real não publica o Prometheus: o compose base, sozinho (sem o
-# override do smoke), não tem "ports" no prometheus.
+# override do smoke), tem o serviço prometheus e ele não tem "ports".
 afirmar "compose base não publica porta do Prometheus no host" \
-  bash -c 'docker compose --env-file "$1/testes/smoke.env" -f "$1/docker-compose.yml" config --format json |
-    jq -e "(.services.prometheus.ports // []) | length == 0"' _ "$RAIZ"
+  bash -c 'printf "%s\n" "$1" | jq -e ".services.prometheus != null and ((.services.prometheus.ports // []) | length == 0)"' _ "$(compose_base_json)"
 
 IP_LAN="$(ip -4 route get 1.1.1.1 2>/dev/null |
   awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1);exit}}')"

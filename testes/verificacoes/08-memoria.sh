@@ -7,7 +7,7 @@
 
 secao "Memória: teto em todo serviço da pilha"
 
-SERVICOS_PILHA="$(docker compose --env-file "$RAIZ/testes/smoke.env" -f "$RAIZ/docker-compose.yml" config --services)"
+SERVICOS_PILHA="$(compose_base_json | jq -r '.services | keys[]')"
 afirmar "o compose da raiz lista os serviços da pilha" test -n "$SERVICOS_PILHA"
 
 for servico in $SERVICOS_PILHA; do

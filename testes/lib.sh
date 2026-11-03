@@ -75,3 +75,9 @@ afirmar_probe() {
     return 1
   fi
 }
+
+# compose_base_json -> imprime o JSON do compose da raiz sem overrides (o da pilha real).
+# Precisa de RAIZ (definida pelo smoke.sh).
+compose_base_json() {
+  docker compose --env-file "$RAIZ/testes/smoke.env" -f "$RAIZ/docker-compose.yml" config --format json
+}

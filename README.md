@@ -36,7 +36,7 @@ sites.
   três painéis (Traefik, Node Exporter Full e Sites), tudo provisionado por
   arquivo (veja "Grafana").
 - O Prometheus **não publica porta no host** (não tem autenticação): só a
-  rede interna da pilha o alcança (o Grafana lê `prometheus:9090`). Guarda **90 dias** de histórico num volume nomeado.
+  rede interna da pilha o alcança (o Grafana lê `prometheus:9090`). Guarda **90 dias** de histórico (com teto de **2 GB**) num volume nomeado.
 
 > **Aviso: o uptime medido aqui só vale com o PC ligado.** Se o PC dorme,
 > desliga ou perde a internet, a pilha para de coletar e de avisar, e isso

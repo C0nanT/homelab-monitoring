@@ -169,7 +169,7 @@ nao_tem .env.example '127.0.0.1:3000' ".env.example: sem Grafana na 3000 do host
 # Prometheus sem porta no host: consulta por dentro do container.
 nao_tem README.md '127.0.0.1:9090' "README: sem Prometheus na 9090 do host"
 tem README.md "docker compose exec prometheus wget -qO- 'http://localhost:9090/api/v1/query?query=up'" "README: consulta o Prometheus via docker compose exec"
-tem README.md 'Explore' "README: alternativa dos targets pelo Explore do Grafana"
+tem README.md '*Explore*, fonte de dados Prometheus, consulta `up`' "README: alternativa dos targets pelo Explore do Grafana"
 tem testes/compose/02-prometheus-porta.yml '127.0.0.1:${PORTA_PROMETHEUS' "smoke: override publica o Prometheus só no loopback"
 # Smoke em portas próprias: convive com a pilha real.
 tem README.md '127.0.0.1:19090' "README: smoke usa a porta 19090 do Prometheus"
@@ -199,9 +199,15 @@ tem README.md 'testes/isolados.txt' "README: onde fica a lista de testes isolado
 # Tetos de memória: todo serviço da pilha tem mem_limit (a conta do compose, sem subir nada).
 # O compose normaliza mem_limit para bytes; o smoke confere o mesmo no contêiner (08-memoria.sh).
 if command -v docker >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-  sem_teto="$(docker compose --env-file testes/smoke.env -f docker-compose.yml config --format json 2>/dev/null |
-    jq -r '.services|to_entries[]|select((.value.mem_limit // 0|tonumber) <= 0)|.key' | paste -sd, -)"
-  if [ -z "$sem_teto" ]; then echo "ok    todo serviço do compose tem mem_limit"; else echo "FALHA serviço(s) sem mem_limit no compose: ${sem_teto:-config inválido}"; falhas=$((falhas + 1)); fi
+  # Config que falha (ou sem serviço algum) é FALHA, nunca "ok" por saída vazia.
+  if ! cfg="$(docker compose --env-file testes/smoke.env -f docker-compose.yml config --format json 2>&1)"; then
+    echo "FALHA docker compose config falhou; mem_limit não conferido"; falhas=$((falhas + 1))
+  elif ! n_servicos="$(printf '%s' "$cfg" | jq -e '.services|length' 2>/dev/null)" || [ "$n_servicos" -le 0 ]; then
+    echo "FALHA docker compose config não trouxe serviço algum; mem_limit não conferido"; falhas=$((falhas + 1))
+  else
+    sem_teto="$(printf '%s' "$cfg" | jq -r '.services|to_entries[]|select((.value.mem_limit // 0|tonumber) <= 0)|.key' | paste -sd, -)"
+    if [ -z "$sem_teto" ]; then echo "ok    todo serviço do compose tem mem_limit"; else echo "FALHA serviço(s) sem mem_limit no compose: $sem_teto"; falhas=$((falhas + 1)); fi
+  fi
 else
   echo "AVISO docker ou jq ausente; conferência dos mem_limit pulada"
 fi
