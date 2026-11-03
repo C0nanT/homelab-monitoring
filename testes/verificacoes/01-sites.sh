@@ -30,4 +30,5 @@ afirmar "probe_duration_seconds existe para o alvo no ar" \
 secao "Prometheus: configuração"
 FLAGS="$(curl -sf --max-time 5 "$PROM_URL/api/v1/status/flags")"
 afirmar "retenção de 90 dias" test "$(printf '%s' "$FLAGS" | jq -r '.data["storage.tsdb.retention.time"]')" = 90d
-afirmar "teto de disco de 2 GB no histórico" test "$(printf '%s' "$FLAGS" | jq -r '.data["storage.tsdb.retention.size"]')" = 2GB
+# A API devolve a flag normalizada: o compose passa 2GB, o Prometheus reporta 2GiB.
+afirmar "teto de disco de 2 GB no histórico" test "$(printf '%s' "$FLAGS" | jq -r '.data["storage.tsdb.retention.size"]')" = 2GiB
