@@ -16,10 +16,10 @@
 # --no-stream, container com 1-2 min no ar). Regra: teto >= medido / 0,7,
 # arredondado para um valor redondo; para os serviços pequenos (blackbox,
 # tunel) vale um piso de folga, bem acima disso. Se o uso passar de 70%, o
-# teto sobe. Medido na pilha real (Grafana ainda sem as chaves de leveza):
-#   grafana ~255-261 MiB recém-subido; 763 MiB depois de dias no ar (cresce
-#   com cache de painéis, alertas e consultas)
-#   prometheus ~36-62 MiB | blackbox ~12-24 MiB | tunel ~3 MiB
+# teto sobe. Medido na pilha real:
+#   grafana ~255-264 MiB com as chaves de leveza (era 763 MiB sem elas, depois
+#   de dias no ar)
+#   prometheus ~41-62 MiB | blackbox ~15-24 MiB | tunel ~2-3 MiB
 # Estourar o teto = o kernel mata o processo (OOM) e o restart sobe de novo.
 name: homelab-monitoring
 
@@ -126,12 +126,10 @@ services:
   grafana:
     image: grafana/grafana:13.2.4
     restart: unless-stopped
-    # 1152m (subiu dos 512m do ponto de partida): a pilha real mediu 763 MiB,
-    # que em 512m seria OOM e em 1g ainda daria ~75%. 763/0,7 = 1090 MiB, então
-    # 1152m (~66%). Recém-subido o Grafana enxuto usa ~260 MiB. Medir de novo
-    # (docker stats) depois de dias no ar com as chaves de leveza (gate) e
-    # baixar o teto se o uso estável permitir.
-    mem_limit: 1152m
+    # 512m: o Grafana enxuto usa ~260 MiB na pilha real (~51%). Sem as chaves
+    # de leveza ele chegou a 763 MiB depois de dias no ar: se o docker stats
+    # passar de ~360 MiB (70%) ou aparecer OOM, suba o teto.
+    mem_limit: 512m
     environment:
       GF_SECURITY_ADMIN_USER: admin
       # Obrigatória no .env: sem ela o compose nem sobe (nada de admin/admin).
