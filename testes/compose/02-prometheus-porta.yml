@@ -1,0 +1,8 @@
+# Override do smoke test: publica o Prometheus no loopback do host.
+# A pilha real NÃO publica porta do Prometheus (docker-compose.yml da raiz);
+# o smoke precisa consultar a API pelo host, então só aqui, no projeto
+# "homelab-smoke", a porta existe. PORTA_PROMETHEUS vem do testes/smoke.env.
+services:
+  prometheus:
+    ports:
+      - "127.0.0.1:${PORTA_PROMETHEUS:?definida pelo testes/smoke.env}:9090"

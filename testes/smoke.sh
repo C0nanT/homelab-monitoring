@@ -9,8 +9,9 @@
 # (down -v só no projeto "homelab-smoke"; seus dados reais não são tocados).
 #
 # Convive com a pilha real: usa 127.0.0.1:${PORTA_PROMETHEUS} (19090) e
-# 127.0.0.1:${PORTA_GRAFANA} (13000) do host, longe das portas 9090 e 3000 da
-# pilha real, que pode ficar de pé (não pare nada). Antes de subir, confere
+# 127.0.0.1:${PORTA_GRAFANA} (13000) do host, longe das portas padrão 3000 e 9090 (a pilha
+# real nem publica o Prometheus: só o smoke, por testes/compose/02-prometheus-porta.yml)
+# e a pilha real pode ficar de pé (não pare nada). Antes de subir, confere
 # que as duas estão livres; se uma estiver ocupada, sai dizendo qual e como
 # trocar (PORTA_PROMETHEUS=... PORTA_GRAFANA=... testes/smoke.sh). Os alertas
 # usam token falso e api.telegram.org -> 127.0.0.1. Leva ~1 minuto.

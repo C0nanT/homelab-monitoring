@@ -14,7 +14,7 @@ sites.
 │  blackbox ──────────────────────────────────────►  sites (HTTPS público)
 │     ▲                                 │
 │     │ /probe                          │
-│  prometheus ── 127.0.0.1:9090 (só o PC)
+│  prometheus ── sem porta no host (só a rede da pilha)
 │     ▲                                 │
 │  grafana ── 127.0.0.1:23000 (só o PC) │
 │     │                                 │
@@ -35,8 +35,8 @@ sites.
 - **Grafana** (`127.0.0.1:23000`): já abre com a fonte de dados Prometheus e
   três painéis (Traefik, Node Exporter Full e Sites), tudo provisionado por
   arquivo (veja "Grafana").
-- O Prometheus escuta **só em `127.0.0.1:9090`** (não tem autenticação) e
-  guarda **90 dias** de histórico num volume nomeado.
+- O Prometheus **não publica porta no host** (não tem autenticação): só a
+  rede interna da pilha o alcança (o Grafana lê `prometheus:9090`). Guarda **90 dias** de histórico num volume nomeado.
 
 > **Aviso: o uptime medido aqui só vale com o PC ligado.** Se o PC dorme,
 > desliga ou perde a internet, a pilha para de coletar e de avisar, e isso
@@ -62,15 +62,27 @@ docker compose ps
 ```
 
 Grafana em <http://127.0.0.1:23000> (usuário `admin`, senha
-`GRAFANA_SENHA_ADMIN` do `.env`). Prometheus em <http://127.0.0.1:9090>. Para
-ver os alvos: *Status → Targets* (`sites`, `traefik` e `node`), ou a consulta
-`probe_success`. Verificação rápida sem subir nada: `docker compose config -q`
+`GRAFANA_SENHA_ADMIN` do `.env`). O Prometheus não tem porta no host: para
+ver os alvos e as métricas, veja "Consultar o Prometheus" abaixo. Verificação rápida sem subir nada: `docker compose config -q`
 (com o `.env` preenchido: sem `GRAFANA_SENHA_ADMIN` o compose recusa subir,
 de propósito).
 
 Os dados ficam no volume `prometheus-dados` e sobrevivem a
 `docker compose down`. **Não use `down -v`** fora do smoke test: apaga o
 histórico.
+
+## Consultar o Prometheus
+
+O Prometheus não tem porta no host. Para debug (alvos, `up`, uma métrica),
+consulte por dentro do container:
+
+```bash
+docker compose exec prometheus wget -qO- 'http://localhost:9090/api/v1/query?query=up'
+```
+
+`up` vale `1` por alvo coletado (jobs `sites`, `traefik` e `node`). Como
+alternativa, no Grafana: *Explore*, fonte de dados Prometheus, consulta `up`
+ou `probe_success`.
 
 ## Túnel até a VPS
 
@@ -131,9 +143,8 @@ métricas junto): libere a porta na VPS **antes** de subir esta versão no PC.
    docker compose up -d --build
    docker compose logs tunel     # erros de chave/known_hosts aparecem aqui
    ```
-   Em *Status → Targets*, `traefik` (`tunel:8082`) e `node` (`tunel:9100`)
-   devem ficar `UP`. Ou pela API:
-   `curl -s 'http://127.0.0.1:9090/api/v1/query?query=up' | jq`.
+   Os alvos `traefik` (`tunel:8082`) e `node` (`tunel:9100`) devem ficar `UP`
+   (veja "Consultar o Prometheus").
 
 `chaves/` está no `.gitignore` (menos o `.gitkeep`) e é montada só leitura
 no container. Com o túnel fora, a pilha continua testando os sites; só os
@@ -159,7 +170,8 @@ Tudo é provisionado por arquivo e versionado: recriar o Grafana do zero
   sobe (não existe `admin/admin`). Cadastro de usuários e telemetria
   desligados. Para ver de outro aparelho, use túnel SSH, não abra a porta.
 - **Portas do host**: a pilha real usa a faixa 2xxxx e o smoke a 1xxxx, longe
-  das portas padrão (3000, 9090...) de outros projetos rodando junto.
+  das portas padrão (3000, 9090...) de outros projetos rodando junto. O
+  Prometheus da pilha real não usa porta nenhuma do host.
 - **Traefik** (`traefik.json`): requisições, 5xx e latência por serviço,
   conexões, mais, no topo, a taxa de 5xx por serviço e a tabela de dias até
   vencer cada certificado (`traefik_tls_certs_not_after`).
@@ -407,9 +419,9 @@ até a VPS", abaixo; gere-a antes.
 Não é automatizado: rode depois de colocar no ar e sempre que mexer na VPS,
 no túnel ou no bot.
 
-- [ ] **Túnel real com os alvos `up`.** Em *Status → Targets*
-  (<http://127.0.0.1:9090/targets>), os jobs `sites`, `traefik` e `node`
-  estão `UP`; nos painéis Traefik, Node Exporter Full e Sites aparecem dados
+- [ ] **Túnel real com os alvos `up`.** A consulta `up` (veja
+  "Consultar o Prometheus") mostra os jobs `sites`, `traefik` e `node` com
+  valor `1`; nos painéis Traefik, Node Exporter Full e Sites aparecem dados
   reais da VPS.
 - [ ] **A fonte de dados Loki responde.** Em *Connections → Data sources →
   Loki → Test* (ou *Explore* com a fonte Loki), o teste dá verde e
