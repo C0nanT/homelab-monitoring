@@ -8,3 +8,6 @@
     - https://www.bbcontainermodular.com
     # Endpoint de health do bbcontainer.
     - https://bbcontainermodular.com/api/health
+    - https://compras.conantorres.dev
+    # Endpoint de health do price_trail (abre o SQLite).
+    - https://compras.conantorres.dev/health

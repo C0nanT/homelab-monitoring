@@ -25,7 +25,8 @@ sites.
 ```
 
 - **blackbox → internet**: testa por HTTPS a raiz e o `www` de
-  `conantorres.dev` e `bbcontainermodular.com`, mais os endpoints de health.
+  `conantorres.dev` e `bbcontainermodular.com`, mais `compras.conantorres.dev`
+  (price_trail, sem `www`) e os endpoints de health.
   Guarda `probe_success`, latência, status e validade do certificado.
 - **PC → túnel → loopback da VPS**: as métricas do Traefik e do node
   exporter (e o Loki, dos logs) ficam só no loopback da VPS; um túnel SSH (container `tunel`,
@@ -223,7 +224,7 @@ Os logs dos sites ficam no Loki da VPS (30 dias, coleta 24/7 mesmo com o PC
 desligado) e chegam ao Grafana pelo túnel (`tunel:3100`, fonte de dados `loki`).
 O painel **Logs** (`grafana/dashboards/logs.json`, uid `homelab-logs`) tem:
 
-- **Site**: `conan-torres`, `bbcontainer` ou `traefik` (a borda; sem log de
+- **Site**: `conan-torres`, `bbcontainer`, `price_trail` ou `traefik` (a borda; sem log de
   acesso por router e sem o ruído do socket-proxy, que registra cada consulta
   do Alloy). Escolha o período no seletor de tempo do Grafana.
 - **Buscar texto**: filtra as duas listas de logs (ex.: `Error`, um caminho,

@@ -21,7 +21,7 @@
         "name": "site",
         "label": "Site",
         "type": "custom",
-        "query": "conan-torres,bbcontainer,traefik",
+        "query": "conan-torres,bbcontainer,price_trail,traefik",
         "multi": false,
         "includeAll": false,
         "current": {
@@ -39,6 +39,11 @@
             "selected": false,
             "text": "bbcontainer",
             "value": "bbcontainer"
+          },
+          {
+            "selected": false,
+            "text": "price_trail",
+            "value": "price_trail"
           },
           {
             "selected": false,
