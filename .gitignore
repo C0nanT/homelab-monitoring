@@ -5,3 +5,6 @@ chaves/*
 
 # Relatório da revisão de logs: traz IPs completos e achados de segurança, nunca versionar.
 revisoes/
+
+# Specs, tickets e rascunhos locais (podem trazer achados de segurança): nunca versionar.
+.scratch/
