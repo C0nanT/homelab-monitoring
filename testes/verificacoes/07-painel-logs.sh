@@ -15,8 +15,8 @@ for uid in homelab-sites "$(jq -r '[.[]|select(.title=="Traefik")|.uid]|first' <
   afirmar "painel $uid tem link no topo para o painel Logs" \
     test "$("$RAIZ/grafana-api.sh" GET "/api/dashboards/uid/$uid" | jq -r '[.dashboard.links[]?|select(.url|test("/d/homelab-logs"))]|length')" -ge 1
 done
-afirmar "variável 'site' do painel Logs tem conan-torres, bbcontainer e a borda (traefik)" \
-  test "$(jq -r '[.templating.list[]|select(.name=="site")|.query]|first' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = "conan-torres,bbcontainer,traefik"
+afirmar "variável 'site' do painel Logs tem conan-torres, bbcontainer, price_trail e a borda (traefik)" \
+  test "$(jq -r '[.templating.list[]|select(.name=="site")|.query]|first' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = "conan-torres,bbcontainer,price_trail,traefik"
 afirmar "painel Logs tem a variável de busca 'busca'" \
   test "$(jq -r '[.templating.list[]|select(.name=="busca")]|length' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 1
 afirmar "a busca entra no painel só entre crases (aspas na busca não quebram a consulta)" \
