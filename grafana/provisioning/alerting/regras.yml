@@ -2,7 +2,7 @@
 #
 # THRESHOLDS: all of them are here, in the "limites" block just below; it is
 # the ONLY place to adjust them. The wait times (for:) live on each rule:
-# site/job 5m, 5xx 10m; deploy failed and cron stopped do not wait (0s).
+# site/job 5m, 5xx 10m, cron stopped 5m; deploy failed does not wait (0s).
 # After changing, restart Grafana: docker compose restart grafana
 #
 # Why they are not in .env: Grafana 13.2.3 does NOT substitute environment
@@ -338,11 +338,13 @@ groups:
         title: Deploy cron stopped
         # Minutes since the last run. If the series vanishes (absent), the
         # second part of the query returns 99999 and the alert fires all the
-        # same. With the whole VPS collection stopped, this one and "VPS
+        # same. The 5m wait absorbs boot of the homelab: the tunnel to the VPS
+        # is not up yet, the series is absent and 99999 would fire a false
+        # alarm. With the whole VPS collection stopped, this one and "VPS
         # collection stopped" may fire together (accepted): this one only
         # looks at the age of the last data point.
         condition: C
-        for: 0s
+        for: 5m
         noDataState: OK
         execErrState: Error
         labels: {severity: critical}

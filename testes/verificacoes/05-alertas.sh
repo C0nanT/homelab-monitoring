@@ -45,8 +45,8 @@ afirmar "job parado: espera 5 minutos" \
   test "$(jq -r --arg t "$TITULO_JOB" '.[]|select(.title==$t)|.for' <<<"$REGRAS_JSON")" = 5m
 afirmar "deploy falhou: sem espera (for 0s)" \
   test "$(jq -r --arg t "$TITULO_DEPLOY" '.[]|select(.title==$t)|.for' <<<"$REGRAS_JSON")" = 0s
-afirmar "cron parado: sem espera (for 0s)" \
-  test "$(jq -r --arg t "$TITULO_CRON" '.[]|select(.title==$t)|.for' <<<"$REGRAS_JSON")" = 0s
+afirmar "cron parado: espera de 5m (absorve o boot do homelab)" \
+  test "$(jq -r --arg t "$TITULO_CRON" '.[]|select(.title==$t)|.for' <<<"$REGRAS_JSON")" = 5m
 limite_regra() { # TITULO REFID -> limite numérico do nó threshold (veja o bloco "limites" em regras.yml)
   jq -r --arg t "$1" --arg r "$2" '.[]|select(.title==$t)|.data[]|select(.refId==$r)|.model.conditions[0].evaluator.params[0]' <<<"$REGRAS_JSON"
 }

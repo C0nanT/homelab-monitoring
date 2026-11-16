@@ -311,7 +311,7 @@ message text).
 | VPS disk full | `/` above **85%** | 0 |
 | VPS collection stopped | `traefik` or `node` job `down` | 5 min |
 | Deploy failed (VPS) | `deploy_falhou` = 1 for any site (the `app` goes in the message); resolves when the next run succeeds | 0 |
-| Deploy cron stopped | last cron run (`deploy_rodada_timestamp_seconds`) older than the `deploy_parado_min` limit, or the series vanished | 0 |
+| Deploy cron stopped | last cron run (`deploy_rodada_timestamp_seconds`) older than the `deploy_parado_min` limit, or the series vanished (5 min wait absorbs the homelab boot, while the tunnel is not up yet) | 5 min |
 
 The stopped-cron threshold is `deploy_parado_min` (default 30 min), in the
 `limites` block (thresholds) of `regras.yml`. If the whole VPS collection stops,
