@@ -1,5 +1,5 @@
-# Provedor de painéis: carrega os JSON de grafana/dashboards/ (montados em
-# /var/lib/grafana/dashboards). Mudou um JSON? O Grafana relê em até 30s.
+# Dashboard provider: loads the JSON files from grafana/dashboards/ (mounted at
+# /var/lib/grafana/dashboards). Changed a JSON? Grafana rereads within 30s.
 apiVersion: 1
 providers:
   - name: padrao

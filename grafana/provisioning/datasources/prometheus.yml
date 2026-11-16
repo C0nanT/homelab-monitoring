@@ -1,5 +1,5 @@
-# Fonte de dados provisionada: o Prometheus da própria pilha.
-# O uid é fixo de propósito: painéis e alertas (etapa 5) o referenciam.
+# Provisioned data source: the stack's own Prometheus.
+# The uid is fixed on purpose: dashboards and alerts (stage 5) reference it.
 apiVersion: 1
 datasources:
   - name: Prometheus

@@ -1,13 +1,13 @@
 # Pilha de monitoramento da VPS, rodando no PC (não na VPS).
 #
 # Uso:
-#   cp .env.example .env     # preencha TUNEL_HOST (veja "Túnel até a VPS")
+#   cp .env.example .env     # preencha TUNEL_HOST (see "Tunnel to the VPS")
 #   docker compose up -d --build
 #   docker compose ps
 #
 # Versões FIXAS (nada de latest): cada imagem aparece uma única vez, aqui
 # (a do túnel, no tunel/Dockerfile).
-# Veja "Fixar e atualizar as versões" no README antes de trocar uma tag.
+# See "Pinning and updating versions" in the README before changing a tag.
 #
 # Verificação rápida sem subir nada: docker compose config -q
 #
@@ -45,7 +45,7 @@ services:
       - prometheus-dados:/prometheus
     # Sem "ports": o Prometheus não tem autenticação e a 9090 é de outros
     # projetos. Só a rede interna da pilha o alcança (o Grafana lê
-    # prometheus:9090). Para consultar: "Consultar o Prometheus" no README.
+    # prometheus:9090). To query it: "Querying Prometheus" in the README.
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
       interval: 10s
@@ -149,8 +149,8 @@ services:
       # Alertas no Telegram: o Grafana troca $TELEGRAM_* nos
       # arquivos de grafana/provisioning/alerting/. Token e chat ID só no .env.
       # Os limites ficam em regras.yml (o Grafana não troca env nas regras).
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?defina TELEGRAM_BOT_TOKEN no .env (veja "Alertas no Telegram" no README)}
-      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?defina TELEGRAM_CHAT_ID no .env (veja "Alertas no Telegram" no README)}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN in .env (see "Telegram alerts" in the README)}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?set TELEGRAM_CHAT_ID in .env (see "Telegram alerts" in the README)}
     volumes:
       - grafana-dados:/var/lib/grafana
       # Provisionamento: datasources/, dashboards/ (provedor) e alerting/

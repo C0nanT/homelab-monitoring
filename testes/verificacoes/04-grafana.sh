@@ -132,14 +132,14 @@ tem_dados() {
 }
 
 # Sites (consultas escritas sem variáveis).
-for titulo in "Sites no ar" "Latência por site" "Latência do TLS" "Status HTTP" \
-  "Dias até vencer o certificado (blackbox)" "Dias até vencer o certificado (Traefik)"; do
+for titulo in "Sites up" "Latency per site" "TLS latency" "HTTP status" \
+  "Days until certificate expires (blackbox)" "Days until certificate expires (Traefik)"; do
   tem_dados "Sites: $titulo" "$(painel_expr sites.json "$titulo")"
 done
 
 # Traefik: painéis da comunidade + os acrescentados (5xx e certificados).
 for titulo in "Requests per Entrypoint" "Top slow services" "Most requested services" \
-  "5xx over \$interval" "Taxa de 5xx por serviço" "Dias até vencer o certificado"; do
+  "5xx over \$interval" "5xx rate per service" "Days until certificate expires"; do
   tem_dados "Traefik: $titulo" "$(painel_expr traefik.json "$titulo")"
 done
 

@@ -13,7 +13,7 @@
     "from": "now-6h",
     "to": "now"
   },
-  "description": "Disponibilidade, latência e validade do certificado dos sites, vistos de fora pelo blackbox exporter; ao lado, a validade segundo o Traefik.",
+  "description": "Availability, latency and certificate expiry of the sites, seen from outside by the blackbox exporter; next to it, the expiry according to Traefik.",
   "templating": {
     "list": []
   },
@@ -24,8 +24,8 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Sites no ar",
-      "description": "1 = o blackbox conseguiu abrir o site (HTTPS válido, 2xx); 0 = fora do ar ou inválido. Visto da internet, só enquanto o PC está ligado.",
+      "title": "Sites up",
+      "description": "1 = blackbox managed to open the site (valid HTTPS, 2xx); 0 = down or invalid. Seen from the internet, only while the PC is on.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -44,11 +44,11 @@
               "type": "value",
               "options": {
                 "1": {
-                  "text": "NO AR",
+                  "text": "UP",
                   "color": "green"
                 },
                 "0": {
-                  "text": "FORA",
+                  "text": "DOWN",
                   "color": "red"
                 }
               }
@@ -104,8 +104,8 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Status HTTP",
-      "description": "Código HTTP da resposta final (depois dos redirecionamentos). Vermelho a partir de 400.",
+      "title": "HTTP status",
+      "description": "HTTP code of the final response (after redirects). Red from 400.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -174,8 +174,8 @@
     {
       "id": 3,
       "type": "timeseries",
-      "title": "Latência por site",
-      "description": "Tempo total da coleta (resolver, conectar, TLS, enviar, receber).",
+      "title": "Latency per site",
+      "description": "Total probe time (resolve, connect, TLS, send, receive).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -232,8 +232,8 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Latência do TLS",
-      "description": "Só a negociação TLS (probe_http_duration_seconds, fase tls), separada da latência total.",
+      "title": "TLS latency",
+      "description": "Only the TLS handshake (probe_http_duration_seconds, tls phase), separate from the total latency.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -290,8 +290,8 @@
     {
       "id": 5,
       "type": "bargauge",
-      "title": "Dias até vencer o certificado (blackbox)",
-      "description": "Validade do certificado recebido pelo blackbox, de fora. Vermelho abaixo de 20 dias.",
+      "title": "Days until certificate expires (blackbox)",
+      "description": "Expiry of the certificate received by blackbox, from outside. Red below 20 days.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -362,8 +362,8 @@
     {
       "id": 6,
       "type": "bargauge",
-      "title": "Dias até vencer o certificado (Traefik)",
-      "description": "Validade dos certificados que o Traefik tem guardados (métrica traefik_tls_certs_not_after). Compare com o painel ao lado: se divergirem, o Traefik não está servindo o certificado que ele renovou.",
+      "title": "Days until certificate expires (Traefik)",
+      "description": "Expiry of the certificates Traefik has stored (metric traefik_tls_certs_not_after). Compare with the panel next to it: if they diverge, Traefik is not serving the certificate it renewed.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

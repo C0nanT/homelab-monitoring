@@ -1,5 +1,5 @@
-# Contact point e política de notificação dos alertas.
-# Token e chat ID vêm do .env (o Grafana troca $TELEGRAM_* ao carregar o arquivo).
+# Contact point and notification policy for the alerts.
+# Token and chat ID come from .env (Grafana substitutes $TELEGRAM_* when loading the file).
 apiVersion: 1
 
 contactPoints:
@@ -11,15 +11,15 @@ contactPoints:
         settings:
           bottoken: $TELEGRAM_BOT_TOKEN
           chatid: $TELEGRAM_CHAT_ID
-          # Texto definido em mensagem.yml.
+          # Text defined in mensagem.yml.
           message: '{{ template "telegram.mensagem" . }}'
           parse_mode: HTML
           disable_web_page_preview: true
-        # false = avisa de novo quando o problema resolve.
+        # false = notifies again when the problem resolves.
         disableResolveMessage: false
 
-# Política padrão: tudo vai para o Telegram. Um aviso por problema
-# (alertname + instância); repete a cada 4h enquanto não resolver.
+# Default policy: everything goes to Telegram. One notice per problem
+# (alertname + instance); repeats every 4h until it resolves.
 policies:
   - orgId: 1
     receiver: telegram

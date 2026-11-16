@@ -54,13 +54,13 @@
     },
     {
       "type": "timeseries",
-      "title": "Taxa de 5xx por serviço",
+      "title": "5xx rate per service",
       "id": 902,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Fração das respostas com código 5xx, por serviço (janela do seletor interval). Serviços sem tráfego não aparecem.",
+      "description": "Fraction of responses with a 5xx code, per service (window of the interval selector). Services with no traffic do not appear.",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -112,13 +112,13 @@
     },
     {
       "type": "table",
-      "title": "Dias até vencer o certificado",
+      "title": "Days until certificate expires",
       "id": 903,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Validade dos certificados que o Traefik serve, em dias (vermelho abaixo de 20).",
+      "description": "Expiry of the certificates Traefik serves, in days (red below 20).",
       "gridPos": {
         "h": 8,
         "w": 12,

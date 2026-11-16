@@ -9,14 +9,14 @@
 
 secao "Alertas: regras, contact point e política provisionados"
 
-TITULO_CERT_TRAEFIK="Certificado vencendo (Traefik)"
-TITULO_CERT_BLACKBOX="Certificado vencendo (site)"
-TITULO_SITE="Site fora do ar"
-TITULO_5XX="Taxa de 5xx alta"
-TITULO_DISCO="Disco da VPS cheio"
-TITULO_JOB="Coleta da VPS parada"
-TITULO_DEPLOY="Deploy falhou (VPS)"
-TITULO_CRON="Cron de deploy parado"
+TITULO_CERT_TRAEFIK="Certificate expiring (Traefik)"
+TITULO_CERT_BLACKBOX="Certificate expiring (site)"
+TITULO_SITE="Site down"
+TITULO_5XX="High 5xx rate"
+TITULO_DISCO="VPS disk full"
+TITULO_JOB="VPS collection stopped"
+TITULO_DEPLOY="Deploy failed (VPS)"
+TITULO_CRON="Deploy cron stopped"
 
 # Guarda a última resposta em REGRAS_JSON (usada no resto do arquivo).
 REGRAS_JSON=""
@@ -118,7 +118,7 @@ afirmar "estado do certificado é 'Alerting' (for 0s), sem esperar" \
 # Certificado visto de fora: o do site-ok do smoke vale só 2 dias (< 20), então
 # dispara. O site-cert-ruim (CA desconhecida) e o site-fora (nome não resolve)
 # falham no TLS/DNS e o blackbox nem emite probe_ssl_earliest_cert_expiry:
-# nenhum alerta de certificado falso para eles (só "Site fora do ar").
+# nenhum alerta de certificado falso para eles (só "Site down").
 if aguardar_alerta "$TITULO_CERT_BLACKBOX" 'site-ok'; then
   ok "certificado de 2 dias do site-ok (visto de fora) entra em disparo"
 else

@@ -44,44 +44,44 @@ total_igual() { # expressão esperado
   [ "$(logs_total "$1")" = "$2" ]
 }
 
-# Logs da aplicação, por site e com busca de texto.
-afirmar_linhas "Logs da aplicação: site conan-torres mostra só as linhas dele" \
-  "$(logs_expr 'Logs da aplicação' 0 conan-torres)" "smoke-conan-web smoke-conan-erro" "smoke-bb-app smoke-traefik-acme DownstreamStatus"
-afirmar_linhas "Logs da aplicação: site bbcontainer mostra só as linhas dele" \
-  "$(logs_expr 'Logs da aplicação' 0 bbcontainer)" "smoke-bb-app" "smoke-conan-web smoke-conan-erro"
-afirmar_linhas "Logs da aplicação: a borda (traefik) mostra o log do Traefik sem o log de acesso nem o socket-proxy" \
-  "$(logs_expr 'Logs da aplicação' 0 traefik)" "smoke-traefik-acme" "DownstreamStatus smoke-conan-web smoke-socket-proxy"
-afirmar_linhas "Logs da aplicação: busca de texto 'Error' filtra" \
-  "$(logs_expr 'Logs da aplicação' 0 conan-torres Error)" "smoke-conan-erro" "smoke-conan-web"
-afirmar_linhas "Logs da aplicação: busca com aspas (msg=\"smoke-traefik-acme) funciona" \
-  "$(logs_expr 'Logs da aplicação' 0 traefik 'msg="smoke-traefik-acme')" "smoke-traefik-acme" -
+# Application logs, por site e com busca de texto.
+afirmar_linhas "Application logs: site conan-torres mostra só as linhas dele" \
+  "$(logs_expr 'Application logs' 0 conan-torres)" "smoke-conan-web smoke-conan-erro" "smoke-bb-app smoke-traefik-acme DownstreamStatus"
+afirmar_linhas "Application logs: site bbcontainer mostra só as linhas dele" \
+  "$(logs_expr 'Application logs' 0 bbcontainer)" "smoke-bb-app" "smoke-conan-web smoke-conan-erro"
+afirmar_linhas "Application logs: a borda (traefik) mostra o log do Traefik sem o log de acesso nem o socket-proxy" \
+  "$(logs_expr 'Application logs' 0 traefik)" "smoke-traefik-acme" "DownstreamStatus smoke-conan-web smoke-socket-proxy"
+afirmar_linhas "Application logs: busca de texto 'Error' filtra" \
+  "$(logs_expr 'Application logs' 0 conan-torres Error)" "smoke-conan-erro" "smoke-conan-web"
+afirmar_linhas "Application logs: busca com aspas (msg=\"smoke-traefik-acme) funciona" \
+  "$(logs_expr 'Application logs' 0 traefik 'msg="smoke-traefik-acme')" "smoke-traefik-acme" -
 
-# Log de acesso do site.
-afirmar_linhas "Log de acesso: site conan-torres mostra o 200 dele (método, caminho, ClientHost, duração em ms)" \
-  "$(logs_expr 'Log de acesso' 0 conan-torres)" "200 GET /ofertas 203.0.113.7 1.2ms" "502 /pedido 203.0.113.8"
-afirmar_linhas "Log de acesso: site conan-torres inclui o router do www (conan-torres-www)" \
-  "$(logs_expr 'Log de acesso' 0 conan-torres)" "301 GET /contato 203.0.113.9 0.8ms" -
-afirmar_linhas "Log de acesso: site bbcontainer mostra o 502 dele" \
-  "$(logs_expr 'Log de acesso' 0 bbcontainer)" "502 POST /pedido 203.0.113.8" "/ofertas 203.0.113.7 /contato 203.0.113.9"
-afirmar_linhas "Log de acesso: busca de texto por caminho filtra" \
-  "$(logs_expr 'Log de acesso' 0 bbcontainer pedido)" "/pedido" "/ofertas"
-afirmar_linhas "Log de acesso: busca com aspas (\"RequestPath\":\"/contato) funciona" \
-  "$(logs_expr 'Log de acesso' 0 conan-torres '"RequestPath":"/contato')" "/contato" "/ofertas"
+# Access log do site.
+afirmar_linhas "Access log: site conan-torres mostra o 200 dele (método, caminho, ClientHost, duração em ms)" \
+  "$(logs_expr 'Access log' 0 conan-torres)" "200 GET /ofertas 203.0.113.7 1.2ms" "502 /pedido 203.0.113.8"
+afirmar_linhas "Access log: site conan-torres inclui o router do www (conan-torres-www)" \
+  "$(logs_expr 'Access log' 0 conan-torres)" "301 GET /contato 203.0.113.9 0.8ms" -
+afirmar_linhas "Access log: site bbcontainer mostra o 502 dele" \
+  "$(logs_expr 'Access log' 0 bbcontainer)" "502 POST /pedido 203.0.113.8" "/ofertas 203.0.113.7 /contato 203.0.113.9"
+afirmar_linhas "Access log: busca de texto por caminho filtra" \
+  "$(logs_expr 'Access log' 0 bbcontainer pedido)" "/pedido" "/ofertas"
+afirmar_linhas "Access log: busca com aspas (\"RequestPath\":\"/contato) funciona" \
+  "$(logs_expr 'Access log' 0 conan-torres '"RequestPath":"/contato')" "/contato" "/ofertas"
 
-# Linhas de erro ao longo do tempo: A = stderr, B = texto "error" em stdout.
+# Error lines ao longo do tempo: A = stderr, B = texto "error" em stdout.
 afirmar "Erros: conan-torres tem 1 linha de erro (stderr)" \
-  esperar_ate 30 total_igual "$(logs_expr 'Linhas de erro' 0 conan-torres)" 1
+  esperar_ate 30 total_igual "$(logs_expr 'Error lines' 0 conan-torres)" 1
 afirmar "Erros: bbcontainer tem 0 linhas de erro" \
-  test "$(logs_total "$(logs_expr 'Linhas de erro' 0 bbcontainer)")" = 0
+  test "$(logs_total "$(logs_expr 'Error lines' 0 bbcontainer)")" = 0
 afirmar "Erros: a borda (traefik) tem 1 linha de erro, sem contar o socket-proxy" \
-  esperar_ate 30 total_igual "$(logs_expr 'Linhas de erro' 0 traefik)" 1
+  esperar_ate 30 total_igual "$(logs_expr 'Error lines' 0 traefik)" 1
 
-# Respostas por classe de status (A=2xx, B=3xx, C=4xx, D=5xx) a partir do acesso.
+# Responses by status class (A=2xx, B=3xx, C=4xx, D=5xx) a partir do acesso.
 # status_conferem SITE "2xx 3xx 4xx 5xx" -> totais de cada classe batem.
 status_conferem() {
   local n=0 esperado
   for esperado in $2; do
-    [ "$(logs_total "$(logs_expr 'Respostas por classe de status' "$n" "$1")")" = "$esperado" ] ||
+    [ "$(logs_total "$(logs_expr 'Responses by status class' "$n" "$1")")" = "$esperado" ] ||
       return 1
     n=$((n + 1))
   done
@@ -95,13 +95,13 @@ secao "Painel Logs: disco do Loki (Prometheus, via node exporter da borda)"
 
 # loki_dados_bytes vem do textfile collector do node exporter da VPS (serviço
 # disco-loki do traefik-default); no smoke, do túnel falso (1,5 GiB).
-for titulo in "Disco do Loki" "Disco da VPS usado" "Disco do Loki medido há" "Disco do Loki ao longo do tempo"; do
+for titulo in "Loki disk" "VPS disk used" "Loki disk measured ago" "Loki disk over time"; do
   afirmar "painel '$titulo' usa a fonte prometheus" \
     test "$(jq -r --arg t "$titulo" '[.panels[]|select(.title==$t)|.targets[].datasource.uid]|unique|join(",")' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = prometheus
   tem_dados "Logs: $titulo" "$(painel_expr "$PAINEL_LOGS" "$titulo")"
 done
-afirmar "Disco da VPS usado marca vermelho em 90% (onde o Loki passa a recusar linhas)" \
-  test "$(jq -r '[.panels[]|select(.title=="Disco da VPS usado")|.fieldConfig.defaults.thresholds.steps[]|select(.color=="red")|.value]|first' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 0.9
+afirmar "VPS disk used marca vermelho em 90% (onde o Loki passa a recusar linhas)" \
+  test "$(jq -r '[.panels[]|select(.title=="VPS disk used")|.fieldConfig.defaults.thresholds.steps[]|select(.color=="red")|.value]|first' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 0.9
 
 secao "Painel Logs: linha Deploy (cron)"
 
@@ -110,15 +110,15 @@ secao "Painel Logs: linha Deploy (cron)"
 afirmar "painel Logs tem a linha 'Deploy (cron)'" \
   test "$(jq -r '[.panels[]|select(.type=="row" and .title=="Deploy (cron)")]|length' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 1
 afirmar "a linha 'Deploy (cron)' tem três painéis (estado por site, última rodada, log do cron)" \
-  test "$(jq -r '.panels|(map(.type=="row" and .title=="Deploy (cron)")|index(true)) as $i|[.[$i+1:][]|select(.type!="row")]|.[0:3]|map(.title)|join("|")' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = "Deploy por site|Última rodada do cron|Log do cron de deploy"
-for titulo in "Deploy por site" "Última rodada do cron"; do
+  test "$(jq -r '.panels|(map(.type=="row" and .title=="Deploy (cron)")|index(true)) as $i|[.[$i+1:][]|select(.type!="row")]|.[0:3]|map(.title)|join("|")' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = "Deploy per site|Last cron run|Deploy cron log"
+for titulo in "Deploy per site" "Last cron run"; do
   afirmar "painel '$titulo' usa a fonte prometheus" \
     test "$(jq -r --arg t "$titulo" '[.panels[]|select(.title==$t)|.targets[].datasource.uid]|unique|join(",")' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = prometheus
   tem_dados "Logs: $titulo" "$(painel_expr "$PAINEL_LOGS" "$titulo")"
 done
-afirmar "painel 'Log do cron de deploy' usa a fonte loki e o rótulo job=\"atualizar-apps\"" \
-  test "$(jq -r '[.panels[]|select(.title=="Log do cron de deploy")|.targets[]|select(.datasource.uid=="loki" and (.expr|test("job=\"atualizar-apps\"")))]|length' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 1
-afirmar_linhas "Log do cron de deploy: mostra o atualizado e o ERRO com a mensagem" \
-  "$(logs_expr 'Log do cron de deploy' 0 conan-torres)" "atualizado conan-torres ERRO bbcontainer: smoke-deploy-erro" "smoke-conan-web"
-afirmar_linhas "Log do cron de deploy: busca de texto 'ERRO' filtra" \
-  "$(logs_expr 'Log do cron de deploy' 0 conan-torres ERRO)" "smoke-deploy-erro" "atualizado conan-torres"
+afirmar "painel 'Deploy cron log' usa a fonte loki e o rótulo job=\"atualizar-apps\"" \
+  test "$(jq -r '[.panels[]|select(.title=="Deploy cron log")|.targets[]|select(.datasource.uid=="loki" and (.expr|test("job=\"atualizar-apps\"")))]|length' "$RAIZ/grafana/dashboards/$PAINEL_LOGS")" = 1
+afirmar_linhas "Deploy cron log: mostra o atualizado e o ERRO com a mensagem" \
+  "$(logs_expr 'Deploy cron log' 0 conan-torres)" "atualizado conan-torres ERRO bbcontainer: smoke-deploy-erro" "smoke-conan-web"
+afirmar_linhas "Deploy cron log: busca de texto 'ERRO' filtra" \
+  "$(logs_expr 'Deploy cron log' 0 conan-torres ERRO)" "smoke-deploy-erro" "atualizado conan-torres"

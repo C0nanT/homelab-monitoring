@@ -14,7 +14,7 @@
     "from": "now-1h",
     "to": "now"
   },
-  "description": "Logs dos sites guardados no Loki da VPS (30 dias): aplicação e log de acesso do Traefik, com busca de texto.",
+  "description": "Site logs stored in the VPS's Loki (30 days): application and Traefik access log, with text search.",
   "templating": {
     "list": [
       {
@@ -54,7 +54,7 @@
       },
       {
         "name": "busca",
-        "label": "Buscar texto",
+        "label": "Search text",
         "type": "textbox",
         "query": "",
         "current": {
@@ -80,8 +80,8 @@
     {
       "id": 1,
       "type": "timeseries",
-      "title": "Linhas de erro",
-      "description": "Linhas por intervalo que vieram do stderr ou trazem 'error' no texto da saída padrão (na borda, sem o ruído do socket-proxy).",
+      "title": "Error lines",
+      "description": "Lines per interval that came from stderr or carry 'error' in the stdout text (on the edge, without the socket-proxy noise).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -136,15 +136,15 @@
           "editorMode": "code",
           "expr": "sum(count_over_time({projeto=\"$site\",servico!=\"socket-proxy\",stream=\"stdout\"} |~ \"(?i)level=error|error:\" [$__auto]))",
           "queryType": "range",
-          "legendFormat": "error no texto"
+          "legendFormat": "error in text"
         }
       ]
     },
     {
       "id": 2,
       "type": "timeseries",
-      "title": "Respostas por classe de status",
-      "description": "Respostas do site por classe de status, contadas no log de acesso do Traefik (routers do site e do www). Na borda (traefik) não há log de acesso por router.",
+      "title": "Responses by status class",
+      "description": "Site responses by status class, counted from the Traefik access log (the site's and the www routers). The edge (traefik) has no per-router access log.",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -289,8 +289,8 @@
     {
       "id": 3,
       "type": "logs",
-      "title": "Logs da aplicação",
-      "description": "Saída (stdout e stderr) dos containers do projeto escolhido; na borda, o log do próprio Traefik (sem o log de acesso nem o ruído do socket-proxy).",
+      "title": "Application logs",
+      "description": "Output (stdout and stderr) of the chosen project's containers; on the edge, Traefik's own log (without the access log or the socket-proxy noise).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -325,8 +325,8 @@
     {
       "id": 4,
       "type": "logs",
-      "title": "Log de acesso",
-      "description": "Log de acesso do Traefik para o site (routers do site e do www): status, método, caminho, ClientHost e duração em ms (campos extraídos com | json).",
+      "title": "Access log",
+      "description": "Traefik access log for the site (the site's and the www routers): status, method, path, ClientHost and duration in ms (fields extracted with | json).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -361,7 +361,7 @@
     {
       "id": 5,
       "type": "row",
-      "title": "Armazenamento dos logs",
+      "title": "Log storage",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -374,8 +374,8 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "Disco do Loki",
-      "description": "Espaço ocupado pelos dados do Loki na VPS (volume loki-dados, 30 dias de logs). Medido pelo serviço disco-loki da borda a cada 5 min.",
+      "title": "Loki disk",
+      "description": "Space taken by the Loki data on the VPS (volume loki-dados, 30 days of logs). Measured by the edge's disco-loki service every 5 min.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -435,8 +435,8 @@
     {
       "id": 7,
       "type": "stat",
-      "title": "Disco da VPS usado",
-      "description": "Disco da VPS inteiro (todos os containers e o sistema). Acima de 90% o Loki RECUSA linhas novas (trava LOKI_LIMITE_DISCO da borda): baixe a retenção ou libere espaço antes disso.",
+      "title": "VPS disk used",
+      "description": "The whole VPS disk (all containers and the system). Above 90% Loki REFUSES new lines (the edge's LOKI_LIMITE_DISCO guard): lower the retention or free space before that.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -504,8 +504,8 @@
     {
       "id": 8,
       "type": "stat",
-      "title": "Disco do Loki medido há",
-      "description": "Tempo desde a última medição. Passou de 15 min: o disco-loki da borda parou (docker compose ps disco-loki na VPS).",
+      "title": "Loki disk measured ago",
+      "description": "Time since the last measurement. Over 15 min: the edge's disco-loki stopped (docker compose ps disco-loki on the VPS).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -569,8 +569,8 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "Disco do Loki ao longo do tempo",
-      "description": "Crescimento dos dados do Loki nos últimos 30 dias (a retenção). Deve estabilizar depois de 30 dias, quando o compactor começa a apagar o mais antigo.",
+      "title": "Loki disk over time",
+      "description": "Growth of the Loki data over the last 30 days (the retention window). It should level off after 30 days, when the compactor starts deleting the oldest data.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -612,7 +612,7 @@
           "expr": "loki_dados_bytes{job=\"node\"}",
           "instant": false,
           "range": true,
-          "legendFormat": "disco do Loki"
+          "legendFormat": "Loki disk"
         }
       ]
     },
@@ -632,8 +632,8 @@
     {
       "id": 11,
       "type": "stat",
-      "title": "Deploy por site",
-      "description": "Resultado do deploy de cada site na última rodada do cron da VPS (a cada 10 min): ok ou falhou. Série deploy_falhou, publicada pelo cron no textfile collector do node exporter.",
+      "title": "Deploy per site",
+      "description": "Deploy result of each site in the VPS cron's last run (every 10 min): ok or failed. Series deploy_falhou, published by the cron to the node exporter's textfile collector.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -659,7 +659,7 @@
                   "index": 0
                 },
                 "1": {
-                  "text": "falhou",
+                  "text": "failed",
                   "color": "red",
                   "index": 1
                 }
@@ -712,8 +712,8 @@
     {
       "id": 12,
       "type": "stat",
-      "title": "Última rodada do cron",
-      "description": "Quando o cron da VPS terminou a última rodada (série deploy_rodada_timestamp_seconds). Sem rodada além do limite deploy_parado_min dispara o alerta 'Cron de deploy parado'.",
+      "title": "Last cron run",
+      "description": "When the VPS cron finished its last run (series deploy_rodada_timestamp_seconds). With no run beyond the deploy_parado_min limit, the 'Deploy cron stopped' alert fires.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -772,8 +772,8 @@
     {
       "id": 13,
       "type": "logs",
-      "title": "Log do cron de deploy",
-      "description": "Linhas do log do cron da VPS (/var/log/atualizar-apps.log): 'atualizado <site>' e 'ERRO <site>: <mensagem>'. Não depende do seletor Site; a busca de texto vale.",
+      "title": "Deploy cron log",
+      "description": "Lines of the VPS cron log (/var/log/atualizar-apps.log): 'atualizado <site>' and 'ERRO <site>: <message>'. Independent of the Site selector; the text search applies.",
       "datasource": {
         "type": "loki",
         "uid": "loki"

@@ -6,8 +6,8 @@
 #   127.0.0.1:8082  métricas do Traefik
 #   127.0.0.1:9100  node exporter
 #   127.0.0.1:3100  Loki (logs; o Grafana consulta por aqui)
-# O usuário da VPS (metricas) só pode abrir esses três encaminhamentos: veja
-# "Monitoramento a partir de outra máquina" no README do traefik-default.
+# The VPS user (metricas) may only open these three forwards: see
+# "Monitoramento a partir de outra máquina" in the traefik-default README.
 #
 # Variáveis (do .env, via docker-compose.yml):
 #   TUNEL_HOST       IP ou nome da VPS (obrigatória)
@@ -26,8 +26,8 @@ erro() {
 [ -n "${TUNEL_HOST:-}" ] || erro "TUNEL_HOST vazio. Preencha o .env (veja o .env.example)."
 USUARIO="${TUNEL_USUARIO:-metricas}"
 PORTA="${TUNEL_PORTA_SSH:-22}"
-[ -r /chaves/id_tunel ] || erro "falta chaves/id_tunel (chave privada). Veja \"Túnel até a VPS\" no README."
-[ -s /chaves/known_hosts ] || erro "falta chaves/known_hosts (chave da VPS). Veja \"Túnel até a VPS\" no README."
+[ -r /chaves/id_tunel ] || erro "missing chaves/id_tunel (private key). See \"Tunnel to the VPS\" in the README."
+[ -s /chaves/known_hosts ] || erro "missing chaves/known_hosts (VPS host key). See \"Tunnel to the VPS\" in the README."
 
 # O ssh recusa chave privada legível por outros. A montagem é só leitura, então
 # usamos uma cópia com permissão 600 dentro do container (some no restart).

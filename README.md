@@ -1,212 +1,225 @@
 # homelab-monitoring
 
-Monitoramento da VPS (o servidor do [`traefik-default`](../traefik-default))
-rodando **no meu PC**, não na VPS: Prometheus guarda as métricas, o blackbox
-exporter testa os sites por fora e o Grafana mostra e avisa no Telegram. É
-100% local: não há monitor externo, então com o PC desligado ninguém vigia os
-sites.
+Monitoring for the VPS (the server behind
+[`traefik-default`](../traefik-default)) running **on my PC**, not on the VPS:
+Prometheus stores the metrics, the blackbox exporter probes the sites from the
+outside, and Grafana shows them and alerts on Telegram. It is 100% local:
+there is no external monitor, so with the PC off nobody is watching the sites.
 
-## Arquitetura
+> Language note: documentation, dashboards and alerts are in English.
+> Identifiers keep their original Portuguese names (folders and services such
+> as `tunel`, `chaves/`, `testes/`; variables such as `GRAFANA_SENHA_ADMIN`;
+> metric and label names such as `deploy_falhou`, `projeto`, `tipo`).
+
+## Architecture
 
 ```
- PC (esta pilha, docker compose)                       Internet / VPS
+ PC (this stack, docker compose)                       Internet / VPS
 ┌───────────────────────────────────────┐
-│  blackbox ──────────────────────────────────────►  sites (HTTPS público)
+│  blackbox ──────────────────────────────────────►  sites (public HTTPS)
 │     ▲                                 │
 │     │ /probe                          │
-│  prometheus ── sem porta no host (só a rede da pilha)
+│  prometheus ── no host port (stack network only)
 │     ▲                                 │
-│  grafana ── 127.0.0.1:23000 (só o PC) │
+│  grafana ── 127.0.0.1:23000 (PC only) │
 │     │                                 │
-│     └─► tunel (autossh) ═══ SSH ═══════════════►  loopback da VPS
+│     └─► tunel (autossh) ═══ SSH ═══════════════►  VPS loopback
 │         tunel:8082, :9100, :3100      │            127.0.0.1:8082 Traefik
 └───────────────────────────────────────┘            127.0.0.1:9100 node exporter
                                                        127.0.0.1:3100 Loki (logs)
 ```
 
-- **blackbox → internet**: testa por HTTPS a raiz e o `www` de
-  `conantorres.dev` e `bbcontainermodular.com`, mais `compras.conantorres.dev`
-  (price_trail, sem `www`) e os endpoints de health.
-  Guarda `probe_success`, latência, status e validade do certificado.
-- **PC → túnel → loopback da VPS**: as métricas do Traefik e do node
-  exporter (e o Loki, dos logs) ficam só no loopback da VPS; um túnel SSH (container `tunel`,
-  usuário `metricas`) as traz para a rede interna da pilha, onde o Prometheus
-  coleta os jobs `traefik` e `node` e o Grafana consulta o Loki. Nenhuma porta nova é aberta na VPS nem
-  publicada no PC.
-- **Grafana** (`127.0.0.1:23000`): já abre com a fonte de dados Prometheus e
-  três painéis (Traefik, Node Exporter Full e Sites), tudo provisionado por
-  arquivo (veja "Grafana").
-- O Prometheus **não publica porta no host** (não tem autenticação): só a
-  rede interna da pilha o alcança (o Grafana lê `prometheus:9090`). Guarda **90 dias** de histórico (com teto de **2 GB**) num volume nomeado.
+- **blackbox → internet**: probes the root and `www` of `conantorres.dev` and
+  `bbcontainermodular.com` over HTTPS, plus `compras.conantorres.dev`
+  (price_trail, no `www`) and the health endpoints. It records
+  `probe_success`, latency, status and certificate expiry.
+- **PC → tunnel → VPS loopback**: the Traefik and node exporter metrics (and
+  Loki, for logs) live only on the VPS loopback. An SSH tunnel (container
+  `tunel`, user `metricas`) brings them into the stack's internal network,
+  where Prometheus scrapes the `traefik` and `node` jobs and Grafana queries
+  Loki. No new port is opened on the VPS or published on the PC.
+- **Grafana** (`127.0.0.1:23000`): starts with the Prometheus data source and
+  three dashboards (Traefik, Node Exporter Full and Sites), all provisioned
+  from files (see "Grafana").
+- Prometheus **publishes no host port** (it has no authentication): only the
+  stack's internal network reaches it (Grafana reads `prometheus:9090`). It
+  keeps **90 days** of history (capped at **2 GB**) in a named volume.
 
-> **Aviso: o uptime medido aqui só vale com o PC ligado.** Se o PC dorme,
-> desliga ou perde a internet, a pilha para de coletar e de avisar, e isso
-> não significa que a VPS caiu. Não há monitor externo: com o PC desligado,
-> ninguém avisa se um site cair (decisão consciente, pilha 100% local).
+> **Warning: the uptime measured here is only valid while the PC is on.** If
+> the PC sleeps, shuts down or loses internet, the stack stops collecting and
+> alerting, and that does not mean the VPS is down. There is no external
+> monitor: with the PC off, nobody gets an alert if a site goes down (a
+> deliberate decision, 100% local stack).
 
-## Roteiro de versões
+## Version roadmap
 
-1. Pilha mínima: Prometheus + blackbox testando os sites, com smoke test.
-2. node exporter na borda do `traefik-default`.
-3. Túnel e coleta das métricas da VPS: jobs `traefik` e `node`.
-4. Grafana provisionado: fonte de dados e painéis.
-5. Alertas no Telegram (BotFather: token e chat ID no `.env`).
-6. **Colocar no ar (esta versão)**: VPS, túnel real e checklist manual
-   (veja "Colocar no ar").
+1. Minimal stack: Prometheus + blackbox probing the sites, with a smoke test.
+2. node exporter on the `traefik-default` edge.
+3. Tunnel and collection of the VPS metrics: `traefik` and `node` jobs.
+4. Provisioned Grafana: data source and dashboards.
+5. Telegram alerts (BotFather: token and chat ID in `.env`).
+6. **Going live (this version)**: VPS, real tunnel and manual checklist (see
+   "Going live").
 
-## Subir a pilha
+## Bringing the stack up
 
 ```bash
-cp .env.example .env     # preencha GRAFANA_SENHA_ADMIN e TUNEL_HOST (veja "Túnel até a VPS")
+cp .env.example .env     # fill in GRAFANA_SENHA_ADMIN and TUNEL_HOST (see "Tunnel to the VPS")
 docker compose up -d --build
 docker compose ps
 ```
 
-Grafana em <http://127.0.0.1:23000> (usuário `admin`, senha
-`GRAFANA_SENHA_ADMIN` do `.env`). O Prometheus não tem porta no host: para
-ver os alvos e as métricas, veja "Consultar o Prometheus" abaixo. Verificação rápida sem subir nada: `docker compose config -q`
-(com o `.env` preenchido: sem `GRAFANA_SENHA_ADMIN` o compose recusa subir,
-de propósito).
+Grafana is at <http://127.0.0.1:23000> (user `admin`, password
+`GRAFANA_SENHA_ADMIN` from `.env`). Prometheus has no host port: to see the
+targets and metrics, see "Querying Prometheus" below. Quick check without
+starting anything: `docker compose config -q` (with `.env` filled in: without
+`GRAFANA_SENHA_ADMIN` compose refuses to start, on purpose).
 
-Os dados ficam no volume `prometheus-dados` e sobrevivem a
-`docker compose down`. **Não use `down -v`** fora do smoke test: apaga o
-histórico. O histórico é cortado aos 90 dias ou ao passar de 2 GB, o que vier primeiro.
+Data lives in the `prometheus-dados` volume and survives
+`docker compose down`. **Do not use `down -v`** outside the smoke test: it
+wipes the history. History is cut at 90 days or when it exceeds 2 GB,
+whichever comes first.
 
-## Consultar o Prometheus
+## Querying Prometheus
 
-O Prometheus não tem porta no host. Para debug (alvos, `up`, uma métrica),
-consulte por dentro do container:
+Prometheus has no host port. For debugging (targets, `up`, a metric), query it
+from inside the container:
 
 ```bash
 docker compose exec prometheus wget -qO- 'http://localhost:9090/api/v1/query?query=up'
 ```
 
-`up` vale `1` por alvo coletado (jobs `sites`, `traefik` e `node`). Como
-alternativa, no Grafana: *Explore*, fonte de dados Prometheus, consulta `up`
-ou `probe_success`.
+`up` is `1` for each scraped target (jobs `sites`, `traefik` and `node`).
+Alternatively, in Grafana: *Explore*, Prometheus data source, query `up` or
+`probe_success`.
 
-## Túnel até a VPS
+## Tunnel to the VPS
 
-O container `tunel` abre um túnel SSH (autossh) com o usuário `metricas` da
-VPS e encaminha `127.0.0.1:8082` (Traefik), `127.0.0.1:9100` (node exporter)
-e `127.0.0.1:3100` (Loki, os logs) de lá para `tunel:8082`, `tunel:9100` e
-`tunel:3100` na rede interna da pilha. O healthcheck do container confere as
-três portas. Ele
-reconecta sozinho: o keepalive do SSH (`ServerAliveInterval`) percebe a
-conexão morta em menos de um minuto (suspensão do PC, troca de rede, VPS
-reiniciada), o autossh reabre, e o Docker reinicia o container se ele cair
-(`restart: unless-stopped`). Se um encaminhamento falhar
-(`ExitOnForwardFailure`), a conexão cai e é refeita, em vez de ficar de pé
-sem métricas.
+The `tunel` container opens an SSH tunnel (autossh) with the VPS user
+`metricas` and forwards `127.0.0.1:8082` (Traefik), `127.0.0.1:9100` (node
+exporter) and `127.0.0.1:3100` (Loki, the logs) from there to `tunel:8082`,
+`tunel:9100` and `tunel:3100` on the stack's internal network. The container
+healthcheck verifies all three ports. It reconnects by itself: the SSH
+keepalive (`ServerAliveInterval`) detects a dead connection in under a minute
+(PC suspend, network change, VPS reboot), autossh reopens it, and Docker
+restarts the container if it dies (`restart: unless-stopped`). If a forward
+fails (`ExitOnForwardFailure`), the connection drops and is redone, instead of
+staying up without metrics.
 
-O túnel não publica porta nenhuma no PC: o túnel manual do painel
-(`ssh -L 8080:... -L 8082:...`, do `traefik-default`) funciona ao mesmo
-tempo, sem conflito.
+The tunnel publishes no port on the PC: the manual dashboard tunnel
+(`ssh -L 8080:... -L 8082:...`, from `traefik-default`) works at the same time,
+with no conflict.
 
-**Antes, na VPS:** crie o usuário `metricas` com a chave restrita, seguindo
-"Monitoramento a partir de outra máquina" no README do
-[`traefik-default`](../traefik-default#monitoramento-a-partir-de-outra-máquina).
-A linha do `authorized_keys` do `metricas` precisa liberar as **três** portas;
-se você montou o usuário antes dos logs, acrescente a terceira (e só ela):
+**First, on the VPS:** create the `metricas` user with the restricted key,
+following "Monitoramento a partir de outra máquina" (monitoring from another
+machine) in the
+[`traefik-default`](../traefik-default#monitoramento-a-partir-de-outra-máquina)
+README. The `metricas` line in `authorized_keys` must allow **all three**
+ports; if you set the user up before the logs existed, add the third (and only
+that one):
 
 ```
 restrict,port-forwarding,permitopen="127.0.0.1:8082",permitopen="127.0.0.1:9100",permitopen="127.0.0.1:3100" ssh-ed25519 AAAA... metricas@homelab
 ```
 
-Sem a 3100 liberada, o `ExitOnForwardFailure` derruba o túnel inteiro (e as
-métricas junto): libere a porta na VPS **antes** de subir esta versão no PC.
+Without 3100 allowed, `ExitOnForwardFailure` takes the whole tunnel down (and
+the metrics with it): allow the port on the VPS **before** bringing this
+version up on the PC.
 
-**No PC**, na pasta deste repositório:
+**On the PC**, in this repository's folder:
 
-1. Gere a chave dedicada (sem senha: o container precisa usá-la sozinho; ela
-   só serve para ler métricas):
+1. Generate the dedicated key (no passphrase: the container must use it on its
+   own; it only reads metrics):
    ```bash
    ssh-keygen -t ed25519 -N '' -C metricas@homelab -f chaves/id_tunel
    chmod 600 chaves/id_tunel
    ```
-   A pública (`chaves/id_tunel.pub`) vai para o `authorized_keys` do
-   `metricas` na VPS.
-2. Pegue a chave pública **do servidor** para o `known_hosts` (o túnel recusa
-   qualquer servidor que não esteja nele, `StrictHostKeyChecking=yes`):
+   The public key (`chaves/id_tunel.pub`) goes into the VPS `metricas`
+   `authorized_keys`.
+2. Get the **server's** public key into `known_hosts` (the tunnel refuses any
+   server not listed there, `StrictHostKeyChecking=yes`):
    ```bash
    ssh-keyscan -t ed25519 IP_DA_VPS > chaves/known_hosts
    ssh-keygen -lf chaves/known_hosts
    ```
-   O `ssh-keyscan` confia no que receber; confira a impressão digital
-   (`SHA256:...`) com a da própria VPS, rodando lá dentro
-   `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`. Se o `sshd` não usa a
-   porta 22, use `ssh-keyscan -p PORTA ...`: a linha sai como `[IP]:PORTA`,
-   que é a forma que o ssh procura.
-3. Preencha o `.env`: `TUNEL_HOST=IP_DA_VPS` (e `TUNEL_USUARIO`,
-   `TUNEL_PORTA_SSH`, se diferentes de `metricas` e `22`).
-4. Suba e confira:
+   `ssh-keyscan` trusts whatever it receives; check the fingerprint
+   (`SHA256:...`) against the VPS's own by running, on the VPS,
+   `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`. If `sshd` does not use
+   port 22, use `ssh-keyscan -p PORT ...`: the line comes out as `[IP]:PORT`,
+   which is the form ssh looks up.
+3. Fill in `.env`: `TUNEL_HOST=IP_DA_VPS` (and `TUNEL_USUARIO`,
+   `TUNEL_PORTA_SSH`, if different from `metricas` and `22`).
+4. Bring it up and check:
    ```bash
    docker compose up -d --build
-   docker compose logs tunel     # erros de chave/known_hosts aparecem aqui
+   docker compose logs tunel     # key/known_hosts errors show up here
    ```
-   Os alvos `traefik` (`tunel:8082`) e `node` (`tunel:9100`) devem ficar `UP`
-   (veja "Consultar o Prometheus").
+   The `traefik` (`tunel:8082`) and `node` (`tunel:9100`) targets should be
+   `UP` (see "Querying Prometheus").
 
-`chaves/` está no `.gitignore` (menos o `.gitkeep`) e é montada só leitura
-no container. Com o túnel fora, a pilha continua testando os sites; só os
-jobs `traefik` e `node` ficam `down` e a fonte de dados Loki falha no teste.
-O mesmo vale para o Loki parado na VPS: nem o Prometheus nem o Grafana
-dependem dele para subir.
+`chaves/` (keys) is in `.gitignore` (except `.gitkeep`) and is mounted
+read-only in the container. With the tunnel down, the stack keeps probing the
+sites; only the `traefik` and `node` jobs go `down` and the Loki data source
+fails its test. The same applies to Loki being stopped on the VPS: neither
+Prometheus nor Grafana depend on it to start.
 
 ## Grafana
 
-Tudo é provisionado por arquivo e versionado: recriar o Grafana do zero
-(`docker compose down` e apagar o volume `grafana-dados`) não exige um clique.
+Everything is provisioned from files and versioned: recreating Grafana from
+scratch (`docker compose down` and deleting the `grafana-dados` volume) needs
+no clicking.
 
-| O quê | Onde |
+| What | Where |
 |---|---|
-| Fonte de dados Prometheus (padrão, uid `prometheus`) | `grafana/provisioning/datasources/prometheus.yml` |
-| Fonte de dados Loki (uid `loki`, `http://tunel:3100`, via túnel) | `grafana/provisioning/datasources/loki.yml` |
-| Provedor dos painéis (relê a pasta a cada 30s) | `grafana/provisioning/dashboards/provedor.yml` |
-| Painéis (JSON) | `grafana/dashboards/` |
-| Alertas (contact point, política, regras) | `grafana/provisioning/alerting/` (veja "Alertas no Telegram") |
+| Prometheus data source (default, uid `prometheus`) | `grafana/provisioning/datasources/prometheus.yml` |
+| Loki data source (uid `loki`, `http://tunel:3100`, via the tunnel) | `grafana/provisioning/datasources/loki.yml` |
+| Dashboard provider (rereads the folder every 30s) | `grafana/provisioning/dashboards/provedor.yml` |
+| Dashboards (JSON) | `grafana/dashboards/` |
+| Alerts (contact point, policy, rules) | `grafana/provisioning/alerting/` (see "Telegram alerts") |
 
-- **Acesso**: só em `127.0.0.1:23000` (porta em `PORTA_GRAFANA`), usuário
-  `admin` e a senha `GRAFANA_SENHA_ADMIN` do `.env`; sem ela o compose não
-  sobe (não existe `admin/admin`). Cadastro de usuários e telemetria
-  desligados. Para ver de outro aparelho, use túnel SSH, não abra a porta.
-- **Portas do host**: a pilha real usa a faixa 2xxxx e o smoke a 1xxxx, longe
-  das portas padrão (3000, 9090...) de outros projetos rodando junto. O
-  Prometheus da pilha real não usa porta nenhuma do host.
-- **Traefik** (`traefik.json`): requisições, 5xx e latência por serviço,
-  conexões, mais, no topo, a taxa de 5xx por serviço e a tabela de dias até
-  vencer cada certificado (`traefik_tls_certs_not_after`).
-- **Node Exporter Full** (`node-exporter-full.json`): CPU, memória, disco e
-  rede da VPS, com o job `node` já selecionado.
-- **Sites** (`sites.json`, próprio): no ar, status HTTP, latência total e do
-  TLS por site, e os dias até vencer o certificado **lado a lado**: o que o
-  blackbox recebeu de fora e o que o Traefik tem guardado.
-- **Logs** (`logs.json`, próprio): logs da aplicação e log de acesso do
-  Traefik por site, linhas de erro, respostas por classe de status e o
-  disco do Loki (veja "Logs"). Sites e Traefik têm um link para ele no topo.
-- Os painéis são editáveis na tela só para olhar; as mudanças **não** são
-  salvas (vêm dos arquivos).
+- **Access**: only on `127.0.0.1:23000` (port set by `PORTA_GRAFANA`), user
+  `admin` and the `GRAFANA_SENHA_ADMIN` password from `.env`; without it
+  compose does not start (there is no `admin/admin`). User sign-up and
+  telemetry are disabled. To view it from another device, use an SSH tunnel;
+  do not open the port.
+- **Host ports**: the real stack uses the 2xxxx range and the smoke test the
+  1xxxx range, far from the default ports (3000, 9090...) of other projects
+  running alongside. The real stack's Prometheus uses no host port at all.
+- **Traefik** (`traefik.json`): requests, 5xx and latency per service,
+  connections, plus, at the top, the 5xx rate per service and the table of
+  days until each certificate expires (`traefik_tls_certs_not_after`).
+- **Node Exporter Full** (`node-exporter-full.json`): VPS CPU, memory, disk and
+  network, with the `node` job already selected.
+- **Sites** (`sites.json`, custom): up/down, HTTP status, total and TLS latency
+  per site, and the days until the certificate expires **side by side**: what
+  blackbox received from outside and what Traefik has stored.
+- **Logs** (`logs.json`, custom): application logs and the Traefik access log
+  per site, error lines, responses by status class and Loki's disk usage (see
+  "Logs"). Sites and Traefik have a link to it at the top.
+- Dashboards are editable on screen for exploration only; changes are **not**
+  saved (they come from the files).
 
-### Atualizar um painel
+### Updating a dashboard
 
-Os painéis Traefik e Node Exporter Full vêm dos painéis públicos da
-comunidade ([17346](https://grafana.com/grafana/dashboards/17346) revisão 9 e
-[1860](https://grafana.com/grafana/dashboards/1860) revisão 45), salvos como
-JSON no repositório (nada é baixado em tempo de execução). Ajustes feitos
-sobre o original: no Traefik, a fonte de dados fixa `prometheus` no lugar de
-`${DS_PROMETHEUS}`, título "Traefik" e as duas visões acrescentadas no topo;
-no Node, só o job `node` pré-selecionado. Para atualizar: baixe a nova
-revisão, refaça esses ajustes, troque o JSON, rode `testes/smoke.sh` (ele
-confere que os painéis principais têm dados) e suba. Para criar ou ajustar um
-painel: edite na tela, *Export → Save to file* e salve o JSON em
+The Traefik and Node Exporter Full dashboards come from the public community
+dashboards ([17346](https://grafana.com/grafana/dashboards/17346) revision 9
+and [1860](https://grafana.com/grafana/dashboards/1860) revision 45), saved as
+JSON in the repository (nothing is downloaded at runtime). Adjustments made on
+top of the originals: in Traefik, the fixed `prometheus` data source instead of
+`${DS_PROMETHEUS}`, the title "Traefik" and the two views added at the top; in
+Node, only the `node` job preselected. To update: download the new revision,
+redo those adjustments, replace the JSON, run `testes/smoke.sh` (it checks that
+the main dashboards have data) and bring it up. To create or adjust a
+dashboard: edit it on screen, *Export → Save to file* and save the JSON in
 `grafana/dashboards/`.
 
-### Consultar a API do Grafana
+### Querying the Grafana API
 
-`grafana-api.sh` (na raiz) chama a API do Grafana real com a senha do `.env` e
-imprime o JSON pronto para o `jq`. Uso: `./grafana-api.sh MÉTODO CAMINHO
-[CORPO_JSON]` (o corpo também pode vir da entrada padrão). Resposta fora do 2xx
-sai com erro, mostrando o código HTTP e o corpo. Exemplos:
+`grafana-api.sh` (in the root) calls the real Grafana API with the password
+from `.env` and prints JSON ready for `jq`. Usage:
+`./grafana-api.sh METHOD PATH [JSON_BODY]` (the body can also come from
+standard input). A non-2xx response exits with an error, showing the HTTP code
+and the body. Examples:
 
 ```
 ./grafana-api.sh GET /api/v1/provisioning/alert-rules | jq -r '.[].title'
@@ -214,56 +227,60 @@ sai com erro, mostrando o código HTTP e o corpo. Exemplos:
 ./grafana-api.sh GET /api/datasources/uid/loki/health | jq
 ```
 
-Nessas três, respectivamente: os nomes das regras de alerta, o estado de cada
-alerta (`inactive`, `pending` ou `firing`) e se a fonte de dados Loki responde
-(se o túnel estiver fora, sai com erro).
+Respectively: the alert rule names, the state of each alert (`inactive`,
+`pending` or `firing`), and whether the Loki data source responds (it errors
+out if the tunnel is down).
 
 ## Logs
 
-Os logs dos sites ficam no Loki da VPS (30 dias, coleta 24/7 mesmo com o PC
-desligado) e chegam ao Grafana pelo túnel (`tunel:3100`, fonte de dados `loki`).
-O painel **Logs** (`grafana/dashboards/logs.json`, uid `homelab-logs`) tem:
+The sites' logs live in the VPS's Loki (30 days, collected 24/7 even with the
+PC off) and reach Grafana through the tunnel (`tunel:3100`, data source
+`loki`). The **Logs** dashboard (`grafana/dashboards/logs.json`, uid
+`homelab-logs`) has:
 
-- **Site**: `conan-torres`, `bbcontainer`, `price_trail` ou `traefik` (a borda; sem log de
-  acesso por router e sem o ruído do socket-proxy, que registra cada consulta
-  do Alloy). Escolha o período no seletor de tempo do Grafana.
-- **Buscar texto**: filtra as duas listas de logs (ex.: `Error`, um caminho,
-  um IP, `msg="acme`). O texto vale literal, aspas e `\` inclusive (vai entre
-  crases na consulta: só uma crase no texto quebra a busca). Deixe vazio para
-  ver tudo.
-- **Linhas de erro**: linhas por intervalo vindas do stderr ou com `error`
-  no texto.
-- **Respostas por classe de status**: 2xx, 3xx, 4xx e 5xx do site, contadas no
-  log de acesso (útil para cruzar com o alerta de 5xx).
-- **Logs da aplicação** e **Log de acesso** (status, método, caminho,
-  `ClientHost` e duração em ms, extraídos com `| json`).
-- **Armazenamento dos logs** (linha no fim, fonte `prometheus`, não muda
-  com o site):
-  quanto os 30 dias de logs ocupam na VPS, o disco da VPS inteiro (vermelho
-  em 90%: dali para cima o Loki **recusa** linhas novas), há quanto tempo foi
-  medido (vermelho passados 15 min) e o crescimento em 30 dias. O número
-  vem da série `loki_dados_bytes`, que o serviço `disco-loki` da borda mede a
-  cada 5 min e o node exporter publica (textfile collector); chega pelo
-  túnel da 9100, job `node`. Se o disco apertar, baixe a retenção em
-  `loki/loki.yml` do traefik-default.
+- **Site** (variable): `conan-torres`, `bbcontainer`, `price_trail` or
+  `traefik` (the edge; no per-router access log and none of the socket-proxy
+  noise, which logs every Alloy query). Pick the period in Grafana's time
+  picker.
+- **Search text** (variable): filters both log lists (e.g.
+  `Error`, a path, an IP, `msg="acme`). The text is literal, quotes and `\`
+  included (it goes between backticks in the query: a single backtick in the
+  text breaks the search). Leave it empty to see everything.
+- **Error lines**: lines per interval coming from stderr or
+  with `error` in the text.
+- **Responses by status class**: 2xx, 3xx,
+  4xx and 5xx of the site, counted from the access log (useful to cross-check
+  the 5xx alert).
+- **Application logs** and **Access log** (status, method, path, `ClientHost` and duration in ms, extracted with
+  `| json`).
+- **Log storage** (row at the bottom, `prometheus`
+  source, independent of the site): how much the 30 days of logs take on the
+  VPS, the whole VPS disk (red at 90%: from there up Loki **refuses** new
+  lines), how long ago it was measured (red after 15 min) and the 30-day
+  growth. The number comes from the `loki_dados_bytes` series, which the
+  edge's `disco-loki` service measures every 5 min and the node exporter
+  publishes (textfile collector); it arrives through the 9100 tunnel, `node`
+  job. If the disk gets tight, lower the retention in `loki/loki.yml` of
+  traefik-default.
 
-- **Deploy (cron)** (linha no fim, três painéis; o seletor Site não vale
-  aqui): **Deploy por site** (`ok` ou `falhou` de cada site na última rodada
-  do cron da VPS, série `deploy_falhou{app}`), **Última rodada do cron**
-  (série `deploy_rodada_timestamp_seconds`) e **Log do cron de deploy**
-  (`atualizado <site>` e `ERRO <site>: <mensagem>`, com a busca de texto). As
-  duas séries o cron grava no textfile collector do node exporter e chegam
-  pelo túnel da 9100, job `node`; o log chega ao Loki com o rótulo
-  `job="atualizar-apps"` (no Explore: `{job="atualizar-apps"} |= "ERRO"`).
+- **Deploy (cron)** (row at the bottom, three panels; the Site variable does
+  not apply here): **Deploy per site** (`ok` or `failed` for each site in the
+  VPS cron's last run, series `deploy_falhou{app}`), **Last cron run** (series
+  `deploy_rodada_timestamp_seconds`) and **Deploy cron log** (lines
+  `atualizado <site>` and `ERRO <site>: <message>`, written by the VPS cron, with the text search).
+  The cron writes both series to the node exporter's textfile collector and
+  they arrive through the 9100 tunnel, `node` job; the log reaches Loki with
+  the label `job="atualizar-apps"` (in Explore:
+  `{job="atualizar-apps"} |= "ERRO"`).
 
-O log de acesso e as classes de status somam o router do site e o do `www`
-(`router=~"$site(-www)?@.+"`; a regex do Loki casa o valor inteiro).
+The access log and the status classes sum the site's router and the `www` one
+(`router=~"$site(-www)?@.+"`; Loki's regex matches the whole value).
 
-Com o túnel fora, só este painel mostra erro de conexão; o resto do Grafana
-segue normal. Para consultas livres use *Explore* (fonte `loki`). Rótulos:
-`projeto`, `servico`, `stream`; no Traefik também `tipo` (`acesso` | `traefik`)
-e, no acesso, `router` (ex.: `conan-torres@docker`, `conan-torres-www@docker`).
-Exemplos de LogQL:
+With the tunnel down, only this dashboard shows a connection error; the rest of
+Grafana carries on normally. For free-form queries use *Explore* (`loki`
+source). Labels: `projeto`, `servico`, `stream`; on Traefik also `tipo`
+(`acesso` | `traefik`) and, on access logs, `router` (e.g.
+`conan-torres@docker`, `conan-torres-www@docker`). LogQL examples:
 
 ```logql
 {projeto="conan-torres"} |= "Error"
@@ -274,88 +291,91 @@ sum by (router) (count_over_time({tipo="acesso"} [5m]))
 {tipo="acesso"} | json | line_format `{{.RequestPath}} {{ divf .Duration 1000000 | printf "%.1f" }}ms`
 ```
 
-Um site novo na borda entra no seletor `site` editando a variável no JSON
-(`query` da variável `site` em `logs.json`).
+A new site on the edge enters the `site` selector by editing the variable in
+the JSON (the `query` of the `site` variable in `logs.json`).
 
-## Alertas no Telegram
+## Telegram alerts
 
-O próprio Grafana avisa no Telegram (sem Alertmanager) e **avisa de novo quando
-o problema resolve**. Tudo é provisionado por arquivo em
-`grafana/provisioning/alerting/`: `contato.yml` (contact point `telegram` e
-política de notificação), `regras.yml` (as regras) e `mensagem.yml` (o texto
-das mensagens).
+Grafana itself alerts on Telegram (no Alertmanager) and **notifies again when
+the problem resolves**. Everything is provisioned from files in
+`grafana/provisioning/alerting/`: `contato.yml` (the `telegram` contact point
+and the notification policy), `regras.yml` (the rules) and `mensagem.yml` (the
+message text).
 
-| Alerta | Dispara quando | Espera |
+| Alert | Fires when | Wait |
 |---|---|---|
-| Certificado vencendo (Traefik) | `traefik_tls_certs_not_after` com menos de **20 dias** | 0 |
-| Certificado vencendo (site) | certificado visto de fora pelo blackbox com menos de **20 dias** | 0 |
-| Site fora do ar | `probe_success` = 0 | 5 min |
-| Taxa de 5xx alta | mais de **5%** das respostas de um serviço são 5xx (janela de 10 min) **e** o serviço tem mais de **0,05 req/s** | 10 min |
-| Disco da VPS cheio | `/` acima de **85%** | 0 |
-| Coleta da VPS parada | job `traefik` ou `node` `down` | 5 min |
-| Deploy falhou (VPS) | `deploy_falhou` = 1 em algum site (o `app` vai na mensagem); resolve quando a rodada seguinte der certo | 0 |
-| Cron de deploy parado | última rodada do cron (`deploy_rodada_timestamp_seconds`) há mais que o limite `deploy_parado_min`, ou a série sumiu | 0 |
+| Certificate expiring (Traefik) | `traefik_tls_certs_not_after` is under **20 days** | 0 |
+| Certificate expiring (site) | the certificate seen from outside by blackbox is under **20 days** | 0 |
+| Site down | `probe_success` = 0 | 5 min |
+| High 5xx rate | more than **5%** of a service's responses are 5xx (10 min window) **and** the service has more than **0.05 req/s** | 10 min |
+| VPS disk full | `/` above **85%** | 0 |
+| VPS collection stopped | `traefik` or `node` job `down` | 5 min |
+| Deploy failed (VPS) | `deploy_falhou` = 1 for any site (the `app` goes in the message); resolves when the next run succeeds | 0 |
+| Deploy cron stopped | last cron run (`deploy_rodada_timestamp_seconds`) older than the `deploy_parado_min` limit, or the series vanished | 0 |
 
-O limite do cron parado é `deploy_parado_min` (padrão 30 min), no bloco `limites` de
-`regras.yml`. Se a coleta da VPS toda parar, "Coleta da VPS parada" e "Cron de
-deploy parado" podem disparar juntos (aceito).
+The stopped-cron threshold is `deploy_parado_min` (default 30 min), in the
+`limites` block (thresholds) of `regras.yml`. If the whole VPS collection stops,
+"VPS collection stopped" and "Deploy cron stopped" may fire together (accepted).
 
-Para ver os dois alertas de deploy dispararem de verdade (forçar uma falha na
-VPS, receber no Telegram e vê-lo resolver), siga o
-[checklist da falha forçada](../traefik-default#checklist-manual-da-falha-forçada)
-no README do `traefik-default`.
+To see the two deploy alerts actually fire (force a failure on the VPS,
+receive it on Telegram and watch it resolve), follow the
+[forced-failure checklist](../traefik-default#checklist-manual-da-falha-forçada)
+in the `traefik-default` README.
 
-Cada mensagem diz a gravidade, qual alerta, qual certificado, site ou serviço
-com o valor atual, e desde quando (horário de Brasília):
+Each message states the severity, which alert, which certificate, site or
+service with the current value, and since when (Brasília time):
 
 ```
-🔴 CRÍTICO · Site fora do ar
-Site https://conantorres.dev fora do ar há mais de 5 minutos (probe_success = 0)
-🕐 desde 27/10 14:32
+🔴 CRITICAL · Site down
+Site https://conantorres.dev has been down for more than 5 minutes (probe_success = 0)
+🕐 since Oct 27 14:32
 ```
 
-🔴 `critical`, 🟠 `warning`, ✅ resolvido (com início → fim). Para mudar o
-texto, edite `mensagem.yml` e `docker compose restart grafana`. O tráfego mínimo evita
-alertar por um serviço quase parado em que 1 erro em 3 pedidos dá 33% de 5xx.
+🔴 `critical`, 🟠 `warning`, ✅ resolved (with start → end). To change the text,
+edit `mensagem.yml` and run `docker compose restart grafana`. The minimum
+traffic threshold avoids alerting on a nearly idle service where 1 error in 3
+requests gives 33% 5xx.
 
-### Criar o bot e preencher o `.env`
+### Creating the bot and filling in `.env`
 
-1. No Telegram, converse com o [@BotFather](https://t.me/BotFather), envie
-   `/newbot`, escolha nome e usuário e guarde o **token**
-   (`123456:ABC...`).
-2. Abra uma conversa com o seu bot (ou adicione-o a um grupo) e envie
-   qualquer mensagem, como `/start`.
-3. Descubra o **chat ID**: abra
-   `https://api.telegram.org/bot<TOKEN>/getUpdates` e procure
-   `"chat":{"id":...}`. Em grupo o número é negativo (ex.: `-100123...`).
-4. Preencha no `.env`: `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID` (o compose
-   não sobe sem eles; o token só existe no `.env`, que não vai para o git).
-5. `docker compose up -d` (ou `docker compose up -d grafana` se a pilha já
-   estava de pé).
+1. On Telegram, talk to [@BotFather](https://t.me/BotFather), send `/newbot`,
+   pick a name and username and keep the **token** (`123456:ABC...`).
+2. Open a chat with your bot (or add it to a group) and send any message, such
+   as `/start`.
+3. Find the **chat ID**: open `https://api.telegram.org/bot<TOKEN>/getUpdates`
+   and look for `"chat":{"id":...}`. For a group the number is negative (e.g.
+   `-100123...`).
+4. Fill in `.env`: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` (compose will
+   not start without them; the token exists only in `.env`, which is not
+   committed to git).
+5. `docker compose up -d` (or `docker compose up -d grafana` if the stack was
+   already running).
 
-### Mandar um alerta de teste
+### Sending a test alert
 
-No Grafana (`http://127.0.0.1:23000`): *Alerting → Contact points → telegram →
-Test* (botão "Test"/"Send test notification"). Chegando a mensagem no
-Telegram, o bot, o token e o chat ID estão certos. Se não chegar:
-`docker compose logs grafana | grep -i telegram` (token errado dá `401`/`404`;
-chat ID errado ou bot que nunca recebeu uma mensagem sua dá `400`).
+In Grafana (`http://127.0.0.1:23000`): *Alerting → Contact points → telegram →
+Test* (the "Test"/"Send test notification" button). If the message arrives on
+Telegram, the bot, token and chat ID are right. If it does not:
+`docker compose logs grafana | grep -i telegram` (a wrong token gives
+`401`/`404`; a wrong chat ID, or a bot that never received a message from you,
+gives `400`).
 
-### Ajustar os limites
+### Tuning the thresholds
 
-Os limites (20 dias, 5%, 0,05 req/s, 85%) ficam **num lugar só**: o bloco
-`limites` no topo de `grafana/provisioning/alerting/regras.yml`. Depois de
-mudar, `docker compose restart grafana`. Eles não estão no `.env` porque o
-Grafana 13.2.3 não troca variáveis de ambiente dentro das regras (só no
-contact point); testado e explicado no cabeçalho do `regras.yml`. Os tempos de
-espera (`for:`) ficam em cada regra.
+The thresholds (20 days, 5%, 0.05 req/s, 85%) live in **one place only**: the
+`limites` block at the top of `grafana/provisioning/alerting/regras.yml`. After
+changing them, `docker compose restart grafana`. They are not in `.env` because
+Grafana 13.2.3 does not substitute environment variables inside rules (only in
+the contact point); tested and explained in the header of `regras.yml`. The
+wait times (`for:`) are on each rule.
 
-### Tirar uma regra
+### Removing a rule
 
-Tirar o bloco de uma regra de `regras.yml` **não a apaga do Grafana**: uma regra
-que veio do provisioning só sai com um `deleteRules` no próprio provisioning
-(pela API o Grafana recusa com 409). Acrescente ao arquivo um bloco com o
-`orgId` e o `uid` da regra (o `uid` é o campo `uid` dela no arquivo):
+Removing a rule's block from `regras.yml` **does not delete it from Grafana**: a
+rule that came from provisioning only goes away with a `deleteRules` in the
+provisioning itself (through the API Grafana refuses with 409). Add to the file
+a block with the rule's `orgId` and `uid` (the `uid` is the rule's `uid` field
+in the file):
 
 ```yaml
 deleteRules:
@@ -363,102 +383,103 @@ deleteRules:
     uid: cert-site
 ```
 
-Passo a passo:
+Step by step:
 
-1. Tire o bloco da regra de `regras.yml` e acrescente o `deleteRules` com os
-   uids a apagar.
+1. Remove the rule's block from `regras.yml` and add the `deleteRules` with the
+   uids to delete.
 2. `docker compose restart grafana`.
-3. Confira: `./grafana-api.sh GET /api/v1/provisioning/alert-rules | jq -r '.[].uid'`
-   não lista mais o uid.
-4. Depois do restart, tire o `deleteRules` do arquivo. Se ele ficar, o Grafana
-   tenta apagar esse uid a cada subida, inclusive uma regra que você recriar com
-   o mesmo uid.
+3. Check: `./grafana-api.sh GET /api/v1/provisioning/alert-rules | jq -r '.[].uid'`
+   no longer lists the uid.
+4. After the restart, remove the `deleteRules` from the file. If it stays,
+   Grafana tries to delete that uid on every startup, including a rule you
+   recreate with the same uid.
 
-## Colocar no ar
+## Going live
 
-A ordem para a primeira vez (ou depois de reinstalar a VPS). Os passos são
-manuais; o smoke test não substitui nenhum deles.
+The order for the first time (or after reinstalling the VPS). The steps are
+manual; the smoke test replaces none of them.
 
-**0. No PC: publicar a borda.** O `/opt/traefik` da VPS é um clone do
-GitHub; o node exporter e a documentação do `metricas` só chegam lá
-depois do merge do `feature/homelab-monitoring` na `main` do
-`traefik-default` e do `git push`. Rode antes o `testes/smoke.sh` de lá.
+**0. On the PC: publish the edge.** The VPS's `/opt/traefik` is a clone of the
+GitHub repo; the node exporter and the `metricas` documentation only get there
+after the merge of `feature/homelab-monitoring` into `traefik-default`'s `main`
+and the `git push`. Run that repo's `testes/smoke.sh` first.
 
-**1. Na VPS: node exporter na borda.** Ele vem no `docker-compose.yml` do
+**1. On the VPS: node exporter on the edge.** It comes in the
+`docker-compose.yml` of
 [`traefik-default`](../traefik-default#painel-e-métricas-via-túnel-ssh):
 
 ```bash
 cd /opt/traefik && git pull
 docker compose up -d
-docker compose ps                                   # node-exporter de pé
-curl -s http://127.0.0.1:9100/metrics | head -3     # responde no loopback
-sudo ss -ltnp | grep 9100                           # só 127.0.0.1:9100, nunca 0.0.0.0
+docker compose ps                                   # node-exporter is up
+curl -s http://127.0.0.1:9100/metrics | head -3     # answers on the loopback
+sudo ss -ltnp | grep 9100                           # only 127.0.0.1:9100, never 0.0.0.0
 ```
 
-**2. Do PC: a porta 9100 não aparece de fora.** Tem que falhar (tempo
-esgotado ou conexão recusada):
+**2. From the PC: port 9100 must not be visible from outside.** It has to fail
+(timeout or connection refused):
 
 ```bash
 curl -m 5 http://IP_DA_VPS:9100/metrics
 ```
 
-**3. Na VPS: usuário `metricas`.** Siga "Monitoramento a partir de outra
-máquina" no README do
+**3. On the VPS: the `metricas` user.** Follow "Monitoramento a partir de outra
+máquina" in the
 [`traefik-default`](../traefik-default#monitoramento-a-partir-de-outra-máquina)
-(usuário sem shell, chave restrita às portas 8082, 9100 e 3100, conferência do
-`sshd` e o teste manual da chave). A chave pública vem do passo 1 de "Túnel
-até a VPS", abaixo; gere-a antes.
+README (shell-less user, key restricted to ports 8082, 9100 and 3100, `sshd`
+verification and the manual key test). The public key comes from step 1 of
+"Tunnel to the VPS", below; generate it beforehand.
 
-**4. No PC: túnel e pilha.** Siga "Túnel até a VPS" (chave, `known_hosts`,
-`.env`) e "Criar o bot e preencher o `.env`" (Telegram); depois
-`docker compose up -d --build`.
+**4. On the PC: tunnel and stack.** Follow "Tunnel to the VPS" (key,
+`known_hosts`, `.env`) and "Creating the bot and filling in `.env`" (Telegram);
+then `docker compose up -d --build`.
 
-**5. Confira tudo** com o "Checklist manual".
+**5. Verify everything** with the "Manual checklist".
 
-## Checklist manual
+## Manual checklist
 
-Não é automatizado: rode depois de colocar no ar e sempre que mexer na VPS,
-no túnel ou no bot.
+Not automated: run it after going live and whenever you touch the VPS, the
+tunnel or the bot.
 
-- [ ] **Túnel real com os alvos `up`.** A consulta `up` (veja
-  "Consultar o Prometheus") mostra os jobs `sites`, `traefik` e `node` com
-  valor `1`; nos painéis Traefik, Node Exporter Full e Sites aparecem dados
-  reais da VPS.
-- [ ] **A fonte de dados Loki responde.** Em *Connections → Data sources →
-  Loki → Test* (ou *Explore* com a fonte Loki), o teste dá verde e
-  `{projeto="traefik"}` devolve linhas. Se der erro de conexão, confira a
-  3100 no `authorized_keys` (`permitopen="127.0.0.1:3100"`) e
+- [ ] **Real tunnel with the targets `up`.** The `up` query (see "Querying
+  Prometheus") shows the `sites`, `traefik` and `node` jobs with value `1`; the
+  Traefik, Node Exporter Full and Sites dashboards show real VPS data.
+- [ ] **The Loki data source responds.** In *Connections → Data sources → Loki
+  → Test* (or *Explore* with the Loki source), the test is green and
+  `{projeto="traefik"}` returns lines. If it errors on connection, check 3100
+  in `authorized_keys` (`permitopen="127.0.0.1:3100"`) and
   `docker compose logs tunel`.
-- [ ] **A chave do `metricas` recusa shell.** `ssh -i chaves/id_tunel -o
-  IdentitiesOnly=yes metricas@IP_DA_VPS` fecha na hora (ou "This account is
-  currently not available.").
-- [ ] **A chave do `metricas` recusa encaminhar para outra porta.** Um túnel
-  para `127.0.0.1:8080` (o painel) dá `administratively prohibited` e o
-  `curl` falha, enquanto o de `127.0.0.1:8082` responde. Os comandos estão no
-  passo 4 ("Teste do PC") de "Monitoramento a partir de outra máquina", no
-  README do
-  [`traefik-default`](../traefik-default#monitoramento-a-partir-de-outra-máquina).
-- [ ] **O túnel volta sozinho depois de suspender o PC.** Suspenda o PC por
-  mais de um minuto, acorde e espere 1 a 2 minutos: `traefik` e `node`
-  voltam a `UP` sem mexer em nada. Se não voltarem,
+- [ ] **The `metricas` key refuses a shell.** `ssh -i chaves/id_tunel -o
+  IdentitiesOnly=yes metricas@IP_DA_VPS` closes immediately (or "This account
+  is currently not available.").
+- [ ] **The `metricas` key refuses to forward to another port.** A tunnel to
+  `127.0.0.1:8080` (the dashboard) gives `administratively prohibited` and
+  `curl` fails, while the one to `127.0.0.1:8082` answers. The commands are in
+  step 4 ("Teste do PC", the PC test) of "Monitoramento a partir de outra
+  máquina" in the
+  [`traefik-default`](../traefik-default#monitoramento-a-partir-de-outra-máquina)
+  README.
+- [ ] **The tunnel comes back by itself after suspending the PC.** Suspend the
+  PC for more than a minute, wake it and wait 1 to 2 minutes: `traefik` and
+  `node` return to `UP` with no intervention. If they do not,
   `docker compose logs tunel`.
-- [ ] **A coleta volta depois de reiniciar o Traefik.** Na VPS,
-  `cd /opt/traefik && docker compose restart traefik`. O alvo `traefik` pode
-  cair por alguns segundos e volta a `UP` sozinho no PC (o túnel aponta para
-  o loopback da VPS, que não muda com o container; nada a refazer).
-- [ ] **O Dependabot leu a configuração.** No GitHub, *Insights →
-  Dependency graph → Dependabot* mostra os dois ecossistemas (`docker-compose`
-  e `docker`) sem erro; confira depois do merge que mexe em
+- [ ] **Collection recovers after restarting Traefik.** On the VPS,
+  `cd /opt/traefik && docker compose restart traefik`. The `traefik` target may
+  drop for a few seconds and returns to `UP` by itself on the PC (the tunnel
+  points to the VPS loopback, which does not change with the container;
+  nothing to redo).
+- [ ] **Dependabot read the configuration.** On GitHub, *Insights →
+  Dependency graph → Dependabot* shows both ecosystems (`docker-compose` and `docker`)
+  without errors; check it after the merge that touches
   `.github/dependabot.yml`.
-- [ ] **O alerta de teste chega no Telegram.** Veja "Mandar um alerta de
-  teste".
+- [ ] **The test alert arrives on Telegram.** See "Sending a test alert".
 
-## Adicionar um site
+## Adding a site
 
-Adicionar um site = adicionar uma linha em `prometheus/alvos/sites.yml`
-(sempre `https://`). O Prometheus relê o arquivo sozinho em até 1 minuto, sem
-reiniciar. Os critérios do teste ficam em `blackbox/blackbox.yml`: HTTPS com
-certificado válido, segue redirecionamentos, IPv4, aceita qualquer 2xx.
+Adding a site = adding one line to `prometheus/alvos/sites.yml` (always
+`https://`). Prometheus rereads the file by itself within 1 minute, no restart.
+The probe criteria are in `blackbox/blackbox.yml`: HTTPS with a valid
+certificate, follows redirects, IPv4, accepts any 2xx.
 
 ## Smoke test
 
@@ -466,136 +487,138 @@ certificado válido, segue redirecionamentos, IPv4, aceita qualquer 2xx.
 testes/smoke.sh
 ```
 
-Sobe a pilha com sites falsos (um no ar, um com certificado não confiado, um
-redirecionamento, um 500 e um que não existe) e um túnel falso (o serviço
-`tunel` vira um nginx com `/metrics` do Traefik e do node exporter, sem SSH;
-inclui um certificado vencendo em 10 dias, e a `tunel:3100` repassa para um
-Loki de verdade, o `loki-falso`, onde o smoke injeta linhas de exemplo), confere pela API do
-Prometheus que o alvo no ar dá `probe_success` 1 e os demais 0, que os jobs
-`traefik` e `node` estão `up`, que o túnel não publica portas, que a
-retenção é de 90 dias e que o Prometheus **não** responde no IP não-loopback
-do PC; no Grafana, que está saudável, exige a senha, só escuta em
-`127.0.0.1`, tem as fontes de dados Prometheus e Loki e os três painéis, que
-os painéis principais mostram dados e que as consultas ao Loki feitas pelo
-próprio Grafana devolvem as linhas injetadas, filtradas por site (e que,
-com o Loki parado, o resto da pilha continua de pé); nos
-alertas, que as regras existem pela API, que o contact point e a política
-estão certos, que o certificado de 10 dias dispara e que a regra de 5xx
-entra em contagem para o serviço de tráfego alto mas não para o de tráfego
-quase zero; e que todo serviço da pilha tem teto de memória (`mem_limit`,
-critério no topo do `docker-compose.yml`) e nenhum foi morto por falta de
-memória. Nenhuma mensagem real é enviada (token falso e
-`api.telegram.org` apontado para `127.0.0.1` só no smoke). Derruba tudo
-no final, mesmo com falha. Usa o projeto
-`homelab-smoke`, `127.0.0.1:19090` (Prometheus) e `127.0.0.1:13000`
-(Grafana): roda com a pilha real de pé, sem parar nem mexer em nada dela.
-Antes de subir, confere se essas portas estão livres e, se uma estiver
-ocupada, sai dizendo qual (troque com `PORTA_PROMETHEUS` e `PORTA_GRAFANA`).
-Qualquer variável do `testes/smoke.env` pode ser trocada assim, sem editar o
-arquivo: o ambiente tem prioridade sobre o `testes/smoke.env`, que só dá os
-valores padrão (ex.: `PORTA_PROMETHEUS=19191 testes/smoke.sh`).
-Leva cerca de um minuto.
+It brings the stack up with fake sites (one up, one with an untrusted
+certificate, one redirect, one 500 and one that does not exist) and a fake
+tunnel (the `tunel` service becomes an nginx serving Traefik and node exporter
+`/metrics`, with no SSH; it includes a certificate expiring in 10 days, and
+`tunel:3100` forwards to a real Loki, the `loki-falso` ("fake Loki"), where the
+smoke injects sample lines). Through the Prometheus API it checks that the up
+target gives `probe_success` 1 and the others 0, that the `traefik` and `node`
+jobs are `up`, that the tunnel publishes no ports, that retention is 90 days
+and that Prometheus does **not** answer on the PC's non-loopback IP. On
+Grafana it checks that it is healthy, requires the password, listens only on
+`127.0.0.1`, has the Prometheus and Loki data sources and the three
+dashboards, that the main dashboards show data and that the Loki queries made
+by Grafana itself return the injected lines, filtered by site (and that, with
+Loki stopped, the rest of the stack stays up). On alerts, it checks that the
+rules exist through the API, that the contact point and policy are right, that
+the 10-day certificate fires and that the 5xx rule goes into pending for the
+high-traffic service but not for the near-zero-traffic one. It also checks that
+every service in the stack has a memory cap (`mem_limit`, criterion at the top
+of `docker-compose.yml`) and that none was killed for lack of memory. No real
+message is sent (fake token, and `api.telegram.org` pointed at `127.0.0.1`
+only in the smoke). It tears everything down at the end, even on failure. It
+uses the project `homelab-smoke`, `127.0.0.1:19090` (Prometheus) and
+`127.0.0.1:13000` (Grafana): it runs with the real stack up, without stopping
+or touching anything of it. Before starting, it checks that those ports are
+free and, if one is busy, exits saying which (change them with
+`PORTA_PROMETHEUS` and `PORTA_GRAFANA`). Any variable in `testes/smoke.env` can
+be overridden this way, without editing the file: the environment takes
+precedence over `testes/smoke.env`, which only provides the defaults (e.g.
+`PORTA_PROMETHEUS=19191 testes/smoke.sh`). It takes about a minute.
 
-Para estender (as próximas etapas): uma verificação nova é um arquivo
-`testes/verificacoes/NN-nome.sh`; um serviço falso novo é um override em
-`testes/compose/NN-nome.yml`. Detalhes no cabeçalho do `testes/smoke.sh`.
-Sem subir nada, `testes/docs.sh` confere os pontos do README.
+To extend it (the next stages): a new check is a file
+`testes/verificacoes/NN-name.sh`; a new fake service is an override in
+`testes/compose/NN-name.yml`. Details in the header of `testes/smoke.sh`.
+Without starting anything, `testes/docs.sh` checks the README's required
+points.
 
-## Hook de pre-commit
+## Pre-commit hook
 
-O repositório traz um hook versionado em `.githooks/pre-commit`. Roda em
-segundos, sem subir contêiner (o smoke fica de fora), nesta ordem:
+The repository ships a versioned hook in `.githooks/pre-commit`. It runs in
+seconds, without starting a container (the smoke test is left out), in this
+order:
 
-1. `bash -n` nos scripts `.sh` versionados;
-2. `shellcheck` nesses scripts, de nível *warning* para cima (os *info* são
-   literais entre aspas simples de propósito); se não estiver instalado, o
-   hook avisa que pulou a etapa e segue;
+1. `bash -n` on the versioned `.sh` scripts;
+2. `shellcheck` on those scripts, warning level and up (the *info* findings are
+   single-quoted literals on purpose); if it is not installed, the hook warns
+   that it skipped the step and carries on;
 3. `testes/docs.sh`;
-4. os testes isolados listados em `testes/isolados.txt` (hoje
-   `testes/grafana-api.sh`; sem docker nem portas fixas). Teste isolado novo
-   entra nessa lista e na lista acima, e o `docs.sh` cobra o README.
+4. the isolated tests listed in `testes/isolados.txt` (currently
+   `testes/grafana-api.sh`; no docker, no fixed ports). A new isolated test
+   goes in that list and in the list above, and `docs.sh` enforces the README.
 
-Falhou uma etapa, o commit é recusado e a saída diz qual.
+If a step fails, the commit is refused and the output says which.
 
-Ative uma vez por clone:
+Enable it once per clone:
 
 ```bash
 git config core.hooksPath .githooks
 ```
 
-Antes de commitar, rode as mesmas etapas à mão (ou `.githooks/pre-commit`).
-Numa emergência, pule o hook com `git commit --no-verify`.
+Before committing, run the same steps by hand (or `.githooks/pre-commit`). In
+an emergency, skip the hook with `git commit --no-verify`.
 
-## Fixar e atualizar as versões
+## Pinning and updating versions
 
-As imagens estão **fixadas**, nunca `latest`: nada muda sozinho. Cada tag
-aparece em um único arquivo:
+Images are **pinned**, never `latest`: nothing changes on its own. Each tag
+appears in a single file:
 
 - `docker-compose.yml`: `prom/prometheus:vX.Y.Z`,
-  `prom/blackbox-exporter:vX.Y.Z` e `grafana/grafana:X.Y.Z`;
-- `tunel/Dockerfile`: `alpine:X.Y.Z` (o autossh e o ssh vêm dos pacotes
-  dessa versão do Alpine);
-- `testes/smoke.env`: `nginx:X.Y.Z-alpine` (só dos sites falsos do smoke) e
-  `grafana/loki:X.Y.Z` (o Loki falso, que repete a tag do Loki da borda).
+  `prom/blackbox-exporter:vX.Y.Z` and `grafana/grafana:X.Y.Z`;
+- `tunel/Dockerfile`: `alpine:X.Y.Z` (autossh and ssh come from that Alpine
+  version's packages);
+- `testes/smoke.env`: `nginx:X.Y.Z-alpine` (only for the smoke's fake sites)
+  and `grafana/loki:X.Y.Z` (the fake Loki, which repeats the edge Loki's tag).
 
-Referência da versão do Loki da borda (a única anotação dela neste
-repositório; o `docs.sh` compara com ela o `IMAGEM_LOKI` do smoke):
+Reference for the edge's Loki version (its only annotation in this repository;
+`docs.sh` compares the smoke's `IMAGEM_LOKI` against it):
 
 > Loki da borda: `grafana/loki:3.7.8`
 
-As duas imagens só do smoke ficam em `testes/smoke.env` e **não** entram no
-PR do Dependabot, por decisão: o ecossistema `docker-compose` só lê arquivos
-cujo nome contém "compose" e não lê o `.env`, e o `${IMAGEM_*:?}` dos
-arquivos de `testes/compose/` fica invisível a ele. Torná-las literais
-exigiria renomear os arquivos e repetir o nginx em três lugares, e o
-resultado só se conferiria no GitHub depois do merge. Em troca, o nginx é só
-de teste e o `testes/docs.sh` confere a tag do Loki falso contra a nota
-acima: ele falha se as duas divergirem.
+The two smoke-only images live in `testes/smoke.env` and are **not** part of
+the Dependabot PR, by decision: the `docker-compose` ecosystem only reads files
+whose name contains "compose" and does not read `.env`, and the `${IMAGEM_*:?}`
+in the `testes/compose/` files is invisible to it. Making them literal would
+require renaming the files and repeating nginx in three places, and the result
+could only be verified on GitHub after the merge. In exchange, nginx is
+test-only and `testes/docs.sh` checks the fake Loki's tag against the note
+above: it fails if the two diverge.
 
-### Pelo PR do Dependabot
+### Via the Dependabot PR
 
-Uma vez por mês o Dependabot (`.github/dependabot.yml`) abre um PR por
-ecossistema com as imagens que tiveram versão nova e publicada há pelo menos
-14 dias: um para o compose (Prometheus, blackbox, Grafana) e outro para o
-Alpine do `tunel/Dockerfile`. Nada é aplicado sozinho. Para cada PR:
+Once a month Dependabot (`.github/dependabot.yml`) opens one PR per ecosystem
+with the images that had a new version published at least 14 days ago: one for
+compose (Prometheus, blackbox, Grafana) and another for the Alpine in
+`tunel/Dockerfile`. Nothing is applied on its own. For each PR:
 
-1. Leia as notas de versão que o PR traz.
-2. Deixe a pilha real de pé: o smoke usa as portas 19090 e 13000 e convive
-   com ela.
-3. Rode `testes/smoke.sh` na branch do PR. No PR do Alpine, rode também
-   `docker compose build tunel` (o smoke não usa a imagem do túnel).
-4. Aprove e faça o merge.
-5. Aplique: `docker compose pull`, `docker compose build` e
-   `docker compose up -d`; depois `docker compose ps && docker compose logs
+1. Read the release notes the PR brings.
+2. Keep the real stack up: the smoke test uses ports 19090 and 13000 and
+   coexists with it.
+3. Run `testes/smoke.sh` on the PR's branch. On the Alpine PR, also run
+   `docker compose build tunel` (the smoke does not use the tunnel image).
+4. Approve and merge.
+5. Apply: `docker compose pull`, `docker compose build` and
+   `docker compose up -d`; then `docker compose ps && docker compose logs
    --tail 50`.
 
-O PR do Loki chega só no `traefik-default`. Ao aprová-lo, atualize aqui, na
-mesma hora, o `IMAGEM_LOKI` do `testes/smoke.env` e a nota "Loki da borda"
-acima; o `testes/docs.sh` falha enquanto os dois não baterem.
+The Loki PR only arrives in `traefik-default`. When approving it, update here,
+at the same time, the `IMAGEM_LOKI` in `testes/smoke.env` and the "Loki da
+borda" note above; `testes/docs.sh` fails until the two match.
 
-### À mão
+### By hand
 
-O roteiro abaixo continua valendo para atualizar sem o Dependabot.
+The procedure below remains valid for updating without Dependabot.
 
-Para atualizar, de propósito:
+To update, deliberately:
 
-1. Leia as notas de versão
+1. Read the release notes
    (<https://github.com/prometheus/prometheus/releases>,
    <https://github.com/prometheus/blackbox_exporter/releases>,
    <https://github.com/grafana/grafana/releases>,
    <https://alpinelinux.org/releases/>).
-2. Teste antes: troque a tag no arquivo dela (só ali) e rode
-   `testes/smoke.sh` (usa `127.0.0.1:19090`, com a pilha real de pé). O smoke não usa a imagem do
-   túnel (troca-o por um alvo falso): para o Alpine, rode
-   `docker compose build tunel` e confira, depois do passo 3, os jobs
-   `traefik` e `node` `UP` e `docker compose logs tunel`.
-3. Aplique:
+2. Test first: change the tag in its file (only there) and run
+   `testes/smoke.sh` (uses `127.0.0.1:19090`, with the real stack up). The
+   smoke does not use the tunnel image (it swaps it for a fake target): for
+   Alpine, run `docker compose build tunel` and, after step 3, check the
+   `traefik` and `node` jobs are `UP` and `docker compose logs tunel`.
+3. Apply:
    ```bash
-   docker compose pull           # imagens prontas
-   docker compose up -d --build  # --build reconstrói o túnel
+   docker compose pull           # ready-made images
+   docker compose up -d --build  # --build rebuilds the tunnel
    docker compose ps && docker compose logs --tail 50
    ```
-4. Para voltar atrás, restaure a tag anterior e repita o `up -d`.
+4. To roll back, restore the previous tag and repeat the `up -d`.
 
-O `.env`, as chaves (`chaves/`) e o volume `prometheus-dados` ficam fora do
-git e sobrevivem à troca de imagem.
+`.env`, the keys (`chaves/`) and the `prometheus-dados` volume stay out of git
+and survive the image swap.
