@@ -25,7 +25,7 @@ name: homelab-monitoring
 
 services:
   prometheus:
-    image: prom/prometheus:v3.15.0
+    image: prom/prometheus:v3.15.1
     restart: unless-stopped
     # 256m: ~62 MiB medido (24%); folga para o histórico (90d/2GB) crescer.
     mem_limit: 256m
@@ -62,7 +62,7 @@ services:
         max-file: "5"
 
   blackbox:
-    image: prom/blackbox-exporter:v0.29.0
+    image: prom/blackbox-exporter:v0.29.1
     restart: unless-stopped
     # 64m: ~12-24 MiB medido (até 37%).
     mem_limit: 64m
@@ -124,7 +124,7 @@ services:
   # Traefik, Host (Node Exporter Full), Sites e Logs, tudo provisionado por
   # arquivo (grafana/). Recriar do zero não exige clique.
   grafana:
-    image: grafana/grafana:13.2.4
+    image: grafana/grafana:13.3.0
     restart: unless-stopped
     # 512m: o Grafana enxuto usa ~260 MiB na pilha real (~51%). Sem as chaves
     # de leveza ele chegou a 763 MiB depois de dias no ar: se o docker stats
