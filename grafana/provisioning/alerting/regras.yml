@@ -376,3 +376,49 @@ groups:
               expression: B
               datasource: {type: __expr__, uid: __expr__}
               conditions: [{evaluator: {type: gt, params: [*limite_deploy_parado_min]}}]
+      - uid: ghcr-token-vence
+        title: GHCR token expiring (VPS)
+        # ghcr_token_expira_timestamp_seconds comes from the VPS cron: it asks
+        # GitHub, every run, when the token of `docker login ghcr.io` expires.
+        # A renewed token = new date on the next run, so nothing fires. Without
+        # the series (token with no expiry) = NoData = OK.
+        # Fires only on the whole days left in node C (30, 20, 10, 7, 5, 3, 2,
+        # 1, 0), each day for 24h. The "dias" label makes each day a new
+        # instance, so 3 -> 2 -> 1 -> 0 send one message each; the "aviso"
+        # label routes it to the policy without the "resolved" message (see
+        # contato.yml). Already expired: the "Deploy failed" alert covers it.
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+          aviso: dias
+          dias: '{{ printf "%.0f" .Values.B.Value }}'
+        annotations:
+          summary: 'The GHCR token of the VPS (docker login ghcr.io) expires in {{ printf "%.0f" $values.B.Value }} days: create a new one with read:packages and run docker login ghcr.io on the VPS'
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                floor((max(ghcr_token_expira_timestamp_seconds{job="node"}) - time()) / 86400)
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              datasource: {type: __expr__, uid: __expr__}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: math
+              expression: >-
+                $B == 30 || $B == 20 || $B == 10 || $B == 7 || $B == 5 || ($B >= 0 && $B <= 3)
+              datasource: {type: __expr__, uid: __expr__}

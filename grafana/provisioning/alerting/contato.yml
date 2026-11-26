@@ -17,9 +17,25 @@ contactPoints:
           disable_web_page_preview: true
         # false = notifies again when the problem resolves.
         disableResolveMessage: false
+  # Same bot and chat, without the "resolved" message: for day-count notices
+  # (label aviso=dias), where each day "resolves" the previous one.
+  - orgId: 1
+    name: telegram-sem-resolvido
+    receivers:
+      - uid: telegram-2
+        type: telegram
+        settings:
+          bottoken: $TELEGRAM_BOT_TOKEN
+          chatid: $TELEGRAM_CHAT_ID
+          message: '{{ template "telegram.mensagem" . }}'
+          parse_mode: HTML
+          disable_web_page_preview: true
+        disableResolveMessage: true
 
 # Default policy: everything goes to Telegram. One notice per problem
 # (alertname + instance); repeats every 4h until it resolves.
+# Exception (route below): day-count notices (aviso=dias) go once per day
+# value, with no repeat and no "resolved".
 policies:
   - orgId: 1
     receiver: telegram
@@ -27,3 +43,8 @@ policies:
     group_wait: 30s
     group_interval: 5m
     repeat_interval: 4h
+    routes:
+      - receiver: telegram-sem-resolvido
+        object_matchers: [['aviso', '=', 'dias']]
+        group_by: ['alertname', 'dias']
+        repeat_interval: 30d
