@@ -312,6 +312,7 @@ message text).
 | VPS collection stopped | `traefik` or `node` job `down` | 5 min |
 | Deploy failed (VPS) | `deploy_falhou` = 1 for any site (the `app` goes in the message); resolves when the next run succeeds | 0 |
 | Deploy cron stopped | last cron run (`deploy_rodada_timestamp_seconds`) older than the `deploy_parado_min` limit, or the series vanished (5 min wait absorbs the homelab boot, while the tunnel is not up yet) | 5 min |
+| GHCR token expiring (VPS) | the token of `docker login ghcr.io` on the VPS (`ghcr_token_expira_timestamp_seconds`, read from GitHub by the deploy cron) has exactly **30, 20, 10, 7, 5, 3, 2, 1 or 0** whole days left: one message per day value, never repeated, no "resolved" (contact point `telegram-sem-resolvido`, route `aviso=dias`). A renewed token moves the date, so nothing fires | 0 |
 
 The stopped-cron threshold is `deploy_parado_min` (default 30 min), in the
 `limites` block (thresholds) of `regras.yml`. If the whole VPS collection stops,

@@ -17,12 +17,13 @@ TITULO_DISCO="VPS disk full"
 TITULO_JOB="VPS collection stopped"
 TITULO_DEPLOY="Deploy failed (VPS)"
 TITULO_CRON="Deploy cron stopped"
+TITULO_TOKEN="GHCR token expiring (VPS)"
 
 # Guarda a última resposta em REGRAS_JSON (usada no resto do arquivo).
 REGRAS_JSON=""
 regras_provisionadas() {
   REGRAS_JSON="$("$RAIZ/grafana-api.sh" GET /api/v1/provisioning/alert-rules)" &&
-    jq -e 'length >= 8' <<<"$REGRAS_JSON" >/dev/null
+    jq -e 'length >= 9' <<<"$REGRAS_JSON" >/dev/null
 }
 if esperar_ate 60 regras_provisionadas; then
   ok "regras provisionadas aparecem na API do Grafana"
@@ -31,7 +32,7 @@ else
 fi
 [ -n "$REGRAS_JSON" ] || REGRAS_JSON='[]'
 for titulo in "$TITULO_CERT_TRAEFIK" "$TITULO_CERT_BLACKBOX" "$TITULO_SITE" \
-  "$TITULO_5XX" "$TITULO_DISCO" "$TITULO_JOB" "$TITULO_DEPLOY" "$TITULO_CRON"; do
+  "$TITULO_5XX" "$TITULO_DISCO" "$TITULO_JOB" "$TITULO_DEPLOY" "$TITULO_CRON" "$TITULO_TOKEN"; do
   afirmar "regra '$titulo' existe" \
     test "$(jq -r --arg t "$titulo" '[.[]|select(.title==$t)]|length' <<<"$REGRAS_JSON")" = 1
 done
@@ -67,6 +68,8 @@ afirmar "cron parado: consulta usa a hora da última rodada e cobre a série aus
   bash -c 'grep -q deploy_rodada_timestamp_seconds <<<"$1" && grep -q "absent(" <<<"$1"' _ "$EXPR_CRON"
 afirmar "deploy falhou: mensagem cita o app" \
   bash -c 'jq -e --arg t "$1" ".[]|select(.title==\$t)|.annotations.summary|contains(\"labels.app\")" <<<"$2" >/dev/null' _ "$TITULO_DEPLOY" "$REGRAS_JSON"
+afirmar "token GHCR: rótulo dias vem do valor (uma instância por dia)" \
+  test "$(jq -r --arg t "$TITULO_TOKEN" '.[]|select(.title==$t)|.labels.dias' <<<"$REGRAS_JSON")" = '{{ printf "%.0f" .Values.B.Value }}'
 afirmar "nenhuma regra ficou com variável \$LIMITE_ sem trocar" \
   bash -c '! grep -rq "LIMITE_" "$1"' _ "$RAIZ/grafana/provisioning/alerting"
 
@@ -79,8 +82,13 @@ afirmar "contact point usa o texto de mensagem.yml (telegram.mensagem, HTML)" \
   test "$(jq -r '[.[]|select(.name=="telegram")|.settings|"\(.message)|\(.parse_mode)"]|first' <<<"$CP_JSON")" = '{{ template "telegram.mensagem" . }}|HTML'
 afirmar "template 'telegram' provisionado" \
   test "$("$RAIZ/grafana-api.sh" GET /api/v1/provisioning/templates | jq -r '[.[]|select(.name=="telegram")]|length')" = 1
+POL_JSON="$("$RAIZ/grafana-api.sh" GET /api/v1/provisioning/policies || echo '{}')"
 afirmar "política padrão envia para o contact point telegram" \
-  test "$("$RAIZ/grafana-api.sh" GET /api/v1/provisioning/policies | jq -r '.receiver')" = telegram
+  test "$(jq -r '.receiver' <<<"$POL_JSON")" = telegram
+afirmar "aviso de dias (aviso=dias): rota sem resolvido, por dia, sem repetir" \
+  test "$(jq -r '.routes[]?|select(.object_matchers==[["aviso","=","dias"]])|"\(.receiver)|\(.group_by|join(","))|\(.repeat_interval)"' <<<"$POL_JSON")" = 'telegram-sem-resolvido|alertname,dias|30d'
+afirmar "contact point 'telegram-sem-resolvido' sem aviso de resolução" \
+  test "$(jq -r '[.[]|select(.name=="telegram-sem-resolvido")|.disableResolveMessage]|first' <<<"$CP_JSON")" = true
 afirmar "token do Telegram não aparece em claro na API" \
   bash -c '! printf "%s" "$1" | grep -q "$2"' _ "$CP_JSON" "$TELEGRAM_BOT_TOKEN"
 afirmar "api.telegram.org aponta para 127.0.0.1 no Grafana do smoke (nada sai)" \
@@ -162,6 +170,16 @@ afirmar "jobs traefik e node no ar NÃO disparam" test -z "$(estado_alertas "$TI
 # e a consulta do cron parado devolve ~1 minuto.
 afirmar "deploy em dia (deploy_falhou = 0) NÃO dispara" test -z "$(estado_alertas "$TITULO_DEPLOY")"
 afirmar "cron rodando (última rodada há 1 min) NÃO dispara" test -z "$(estado_alertas "$TITULO_CRON")"
+# Token GHCR falso vence em 2,5 dias: dias=2 está na lista, dispara com dias="2".
+if esperar_ate 180 bash -c '"$1" GET /api/prometheus/grafana/api/v1/rules | jq -e --arg t "$2" "[.data.groups[].rules[]|select(.name==\$t)][0].alerts[]?|select(.state|test(\"^(Alerting|firing)\"))|select(.labels.dias==\"2\" and .labels.aviso==\"dias\")" >/dev/null' _ "$RAIZ/grafana-api.sh" "$TITULO_TOKEN"; then
+  ok "token GHCR vencendo em 2 dias dispara com rótulo dias=2"
+else
+  falha "token GHCR vencendo em 2 dias dispara com rótulo dias=2" "$("$RAIZ/grafana-api.sh" GET /api/prometheus/grafana/api/v1/rules | jq -c --arg t "$TITULO_TOKEN" '[.data.groups[].rules[]|select(.name==$t)][0].alerts')"
+fi
+EXPR_TOKEN="$(expr_regra "$TITULO_TOKEN")"
+DIAS_TOKEN="$(prom_valor "$EXPR_TOKEN")"
+afirmar "token GHCR: a consulta devolve os dias cheios restantes (${DIAS_TOKEN:-nenhum}, esperado 2)" \
+  test "$DIAS_TOKEN" = 2
 MIN_CRON="$(prom_valor "$EXPR_CRON")"
 afirmar "cron parado: a consulta devolve a idade da rodada em minutos (${MIN_CRON:-nenhum})" \
   awk -v m="$MIN_CRON" 'BEGIN{exit !(m != "" && m >= 0 && m < 30)}'

@@ -41,6 +41,7 @@
 #   node_textfile_mtime_seconds{file="/textfile/loki.prom"}  medido há 1 min
 #   deploy_falhou{app="conan-torres|bbcontainer"}  0 (deploy em dia: o alerta NÃO dispara)
 #   deploy_rodada_timestamp_seconds  última rodada do cron há 1 min (< 30: o alerta NÃO dispara)
+#   ghcr_token_expira_timestamp_seconds  token vence em 2,5 dias (dias=2: o alerta dispara)
 set -eu
 
 PASTA=/tmp/metricas
@@ -225,6 +226,9 @@ deploy_falhou{app="bbcontainer"} 0
 # HELP deploy_rodada_timestamp_seconds Fim da última rodada do cron de deploy (Unix).
 # TYPE deploy_rodada_timestamp_seconds gauge
 deploy_rodada_timestamp_seconds $((agora - 60))
+# HELP ghcr_token_expira_timestamp_seconds Horário Unix em que vence o token do docker login ghcr.io.
+# TYPE ghcr_token_expira_timestamp_seconds gauge
+ghcr_token_expira_timestamp_seconds $((agora + 5 * 86400 / 2))
 FIM
 }
 
